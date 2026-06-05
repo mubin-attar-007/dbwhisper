@@ -1,0 +1,109 @@
+table_name: orders
+schema: demo
+object_type: table
+description: ''
+created_date: null
+modified_date: null
+columns:
+- name: id
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: ''
+- name: customer_id
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: ''
+- name: order_date
+  type: date
+  sql_type: date
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: ''
+- name: status
+  type: text
+  sql_type: text
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: ''
+primary_key:
+  constraint_name: orders_pkey
+  columns:
+  - id
+  column_details:
+  - name: id
+    ordinal: 1
+    is_descending: false
+foreign_keys:
+- constraint_name: orders_customer_id_fkey
+  columns:
+  - customer_id
+  referenced_schema: demo
+  referenced_table: customers
+  referenced_columns:
+  - id
+  on_delete: null
+  on_update: null
+  is_disabled: false
+unique_constraints: []
+indexes: []
+check_constraints: []
+keywords: []
+relationships:
+  outgoing:
+  - to_schema: demo
+    to_table: customers
+    via_columns:
+    - customer_id
+    relationship_type: many_to_one
+  incoming:
+  - from_schema: demo
+    from_table: order_items
+    via_columns:
+    - order_id
+    relationship_type: one_to_many
+  many_to_many: []
+statistics:
+  total_columns: 4
+  nullable_columns: 2
+  computed_columns: 0
+  indexed_columns: 0

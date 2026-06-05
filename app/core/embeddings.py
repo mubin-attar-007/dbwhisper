@@ -27,7 +27,7 @@ from app.utils.logger import setup_logging
 logger = setup_logging(__name__)
 
 DEFAULT_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "google").strip().lower()
-DEFAULT_GOOGLE_MODEL = os.getenv("GOOGLE_EMBEDDING_MODEL", "models/text-embedding-004")
+DEFAULT_GOOGLE_MODEL = os.getenv("GOOGLE_EMBEDDING_MODEL", "models/gemini-embedding-001")
 DEFAULT_HF_MODEL = os.getenv("EMBEDDING_MODEL_NAME", "jinaai/jina-embeddings-v3")
 
 _GOOGLE_ALIASES = {"google", "gemini", "googleai", "google-genai"}

@@ -1,0 +1,66 @@
+database_name: dbwhisper
+extraction_date: '2026-06-05T13:25:21.597235+00:00'
+total_schemas: 1
+total_tables: 4
+total_views: 0
+schemas:
+- name: demo
+  table_count: 4
+  view_count: 0
+tables:
+- table: customers
+  schema: demo
+  object_type: table
+  keywords: []
+  column_names:
+  - id
+  - name
+  - email
+  - city
+  - signup_date
+  primary_key:
+  - id
+  has_foreign_keys: false
+  short_description: ''
+- table: orders
+  schema: demo
+  object_type: table
+  keywords: []
+  column_names:
+  - id
+  - customer_id
+  - order_date
+  - status
+  primary_key:
+  - id
+  has_foreign_keys: true
+  short_description: ''
+- table: order_items
+  schema: demo
+  object_type: table
+  keywords: []
+  column_names:
+  - id
+  - order_id
+  - product_id
+  - quantity
+  - unit_price
+  primary_key:
+  - id
+  has_foreign_keys: true
+  short_description: ''
+- table: products
+  schema: demo
+  object_type: table
+  keywords: []
+  column_names:
+  - id
+  - name
+  - category
+  - price
+  primary_key:
+  - id
+  has_foreign_keys: false
+  short_description: ''
+relationship_summary:
+  many_to_many_patterns: []
