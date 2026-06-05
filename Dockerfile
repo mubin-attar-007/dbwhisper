@@ -3,7 +3,7 @@
 # Targets Hugging Face Spaces (Docker SDK) on port 7860; also runnable via compose/Render.
 
 # ── Builder: resolve & install base deps into a venv with uv ──────────────────
-FROM python:3.13-slim-bookworm AS builder
+FROM python:3.14-slim-bookworm AS builder
 COPY --from=ghcr.io/astral-sh/uv:0.11 /uv /uvx /bin/
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
@@ -15,7 +15,7 @@ COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 # ── Runtime ───────────────────────────────────────────────────────────────────
-FROM python:3.13-slim-bookworm AS runtime
+FROM python:3.14-slim-bookworm AS runtime
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PATH="/app/.venv/bin:$PATH" \
