@@ -1,0 +1,27 @@
+# Keep the build context (and image) small.
+.venv/
+.git/
+.github/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.import_linter_cache/
+Log/
+Temp/
+temp_output/
+tests/
+web/
+docs/
+.vscode/
+.idea/
+
+# Secrets / local env (never bake into an image)
+.env
+.env.*
+!.env.example
+
+# Docs & scratch (README.md is kept — HF Spaces reads its frontmatter)
+ENHANCEMENT_PLAN.md
+*.log

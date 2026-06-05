@@ -1,0 +1,127 @@
+table_name: MenuRole
+schema: dbo
+object_type: table
+description: This table assigns user roles to specific menus, controlling which users
+  can see certain navigation items. It acts as a permissions mapping table, linking
+  roles with the menus they are authorized to access.
+created_date: null
+modified_date: null
+columns:
+- name: MenuRoleId
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Unique identifier for the menu and role permission assignment.
+  keywords:
+  - permission ID
+  - access control key
+  - record number
+- name: MenuId
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Identifier for the menu item that a role has permission to access.
+  keywords:
+  - menu item
+  - navigation link
+  - application page
+- name: RoleId
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Identifier for the user role being granted access to a specific menu.
+  keywords:
+  - user role
+  - access group
+  - permission level
+primary_key:
+  constraint_name: PK_MenuRole
+  columns:
+  - MenuRoleId
+  column_details:
+  - name: MenuRoleId
+    ordinal: 1
+    is_descending: false
+foreign_keys:
+- constraint_name: FK_MenuRole_Role_RoleId
+  columns:
+  - RoleId
+  referenced_schema: dbo
+  referenced_table: Role
+  referenced_columns:
+  - RoleId
+  on_delete: null
+  on_update: null
+  is_disabled: false
+- constraint_name: FK_MenuRole_Menu_MenuId
+  columns:
+  - MenuId
+  referenced_schema: dbo
+  referenced_table: Menu
+  referenced_columns:
+  - MenuId
+  on_delete: null
+  on_update: null
+  is_disabled: false
+unique_constraints: []
+indexes: []
+check_constraints: []
+keywords:
+- access control key
+- access group
+- application page
+- menu item
+- navigation link
+- permission ID
+- permission level
+- record number
+- user role
+relationships:
+  outgoing:
+  - to_schema: dbo
+    to_table: Role
+    via_columns:
+    - RoleId
+    relationship_type: many_to_one
+  - to_schema: dbo
+    to_table: Menu
+    via_columns:
+    - MenuId
+    relationship_type: many_to_one
+  incoming: []
+  many_to_many: []
+statistics:
+  total_columns: 3
+  nullable_columns: 0
+  computed_columns: 0
+  indexed_columns: 0

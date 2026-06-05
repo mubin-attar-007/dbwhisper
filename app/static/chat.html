@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SQL Insight Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="/static/chat.css" />
+</head>
+
+<body>
+  <div id="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h1>SQL Insight</h1>
+        <p>Agent Configuration</p>
+      </div>
+
+      <div class="controls">
+        <div class="control-group">
+          <label for="db_flag">Database Flag</label>
+          <input id="db_flag" placeholder="crm_db" value="crm_db" />
+        </div>
+        <div class="control-group">
+          <label for="user_id">User ID (Optional)</label>
+          <input id="user_id" placeholder="e.g. user_123" />
+        </div>
+        <div class="control-group">
+          <label for="session_id">Session ID (Optional)</label>
+          <input id="session_id" placeholder="e.g. session_abc" />
+        </div>
+      </div>
+
+      <div class="history-section">
+        <h2>Local History</h2>
+        <div id="local_history"></div>
+        <button id="clear_history" class="btn-secondary">Clear History</button>
+      </div>
+    </aside>
+
+    <!-- Main Chat Interface -->
+    <main class="main-content">
+      <div id="chat_window" class="chat-container">
+        <!-- Messages will be appended here -->
+        <div class="message agent">
+          <div class="message-content">
+            Hello! I'm your SQL Insight Agent. Connect to a database and ask me anything.
+          </div>
+        </div>
+      </div>
+
+      <form id="queryForm" class="input-area">
+        <div class="input-wrapper">
+          <select id="format" title="Output Format">
+            <option value="json">JSON</option>
+            <option value="csv">CSV</option>
+            <option value="table" selected>Table</option>
+          </select>
+          <label style="margin-left:0.5rem; font-size:0.875rem; color:var(--text-muted); display:flex; align-items:center; gap:0.5rem;">
+            <input id="show_summary" type="checkbox" checked />
+            <span>Show summary</span>
+          </label>
+          <input id="nlquery" type="text" placeholder="Ask a question about your data..." required autocomplete="off" />
+        </div>
+        <button type="submit" class="btn-send">
+          <span>Send</span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </form>
+    </main>
+  </div>
+
+  <script src="/static/chat.js"></script>
+</body>
+
+</html>

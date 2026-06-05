@@ -1,0 +1,496 @@
+table_name: Deal
+schema: dbo
+object_type: table
+description: This table contains detailed records of insurance deals made with customers.
+  Each row represents a single deal, capturing applicant information, coverage details,
+  and key dates. It serves as the primary source for tracking sales performance and
+  policy information.
+created_date: null
+modified_date: null
+columns:
+- name: DealId
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The unique identifier for each insurance deal record.
+  keywords:
+  - deal ID
+  - deal number
+  - identifier
+- name: TypeOfCoverage
+  type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 50
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: Specifies the type of insurance coverage or plan associated with the
+    deal.
+  keywords:
+  - coverage type
+  - policy type
+  - insurance plan
+- name: FirstName
+  type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 100
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The first name of the primary applicant for the insurance deal.
+  keywords:
+  - customer first name
+  - applicant name
+  - client name
+- name: LastName
+  type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 100
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The last name of the primary applicant for the insurance deal.
+  keywords:
+  - customer last name
+  - applicant surname
+  - client name
+- name: NoOfApplicants
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The total number of individuals included in the insurance application.
+  keywords:
+  - number of applicants
+  - applicant count
+  - household size
+- name: FFM
+  type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 100
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: Indicates if the deal is associated with the Federally-Facilitated
+    Marketplace (FFM).
+  keywords:
+  - FFM
+  - marketplace
+  - exchange
+- name: Career
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: A code representing the primary applicant's career or occupation.
+  keywords:
+  - career
+  - occupation
+  - profession
+- name: TypeOfWork
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: A code indicating the applicant's employment status, such as full-time
+    or part-time.
+  keywords:
+  - work type
+  - employment status
+  - job type
+- name: MonthlyIncome
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The reported total monthly income for the applicant or household.
+  keywords:
+  - income
+  - monthly earnings
+  - salary
+- name: DocNeeded
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: A flag indicating whether additional documentation is required to complete
+    the deal.
+  keywords:
+  - documents required
+  - documentation status
+  - paperwork needed
+- name: SocialProvided
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: A flag indicating if a Social Security Number was provided by the applicant.
+  keywords:
+  - SSN
+  - social security
+  - identification
+- name: CustomerLanguage
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: A code for the primary language spoken by the customer.
+  keywords:
+  - language
+  - customer preference
+  - communication language
+- name: CloseDate
+  type: datetime
+  sql_type: datetime
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The date on which the insurance deal was successfully closed or finalized.
+  keywords:
+  - deal closure date
+  - sale date
+  - agreement date
+- name: Notes
+  type: varchar(500) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(500) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 500
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: Contains any additional comments or important information related to
+    the deal.
+  keywords:
+  - notes
+  - comments
+  - deal details
+- name: AgentId
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The unique identifier for the agent responsible for closing the deal.
+  keywords:
+  - agent ID
+  - sales representative
+  - employee ID
+- name: IsActive
+  type: bit
+  sql_type: bit
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Indicates whether the deal is currently active or has been terminated.
+  keywords:
+  - status
+  - active deal
+  - deal status
+- name: CreatedBy
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The identifier of the user who originally created the deal record.
+  keywords:
+  - created by user
+  - record author
+  - originator
+- name: CreatedOn
+  type: datetime
+  sql_type: datetime
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The date and time when the deal record was first created in the system.
+  keywords:
+  - creation date
+  - record date
+  - entry date
+- name: UpdatedBy
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The identifier of the user who last made changes to the deal record.
+  keywords:
+  - updated by user
+  - last modified by
+  - editor
+- name: UpdatedOn
+  type: datetime
+  sql_type: datetime
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The date and time of the most recent update to the deal record.
+  keywords:
+  - last updated
+  - modification date
+  - update timestamp
+- name: IP
+  type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 50
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The IP address from which the deal application was submitted.
+  keywords:
+  - IP address
+  - source IP
+  - network address
+primary_key:
+  constraint_name: PK_Deal
+  columns:
+  - DealId
+  column_details:
+  - name: DealId
+    ordinal: 1
+    is_descending: false
+foreign_keys:
+- constraint_name: FK_Deal_UserMaster_CreatedBy
+  columns:
+  - CreatedBy
+  referenced_schema: dbo
+  referenced_table: UserMaster
+  referenced_columns:
+  - UserMasterId
+  on_delete: null
+  on_update: null
+  is_disabled: false
+- constraint_name: FK_Deal_UserMaster
+  columns:
+  - UpdatedBy
+  referenced_schema: dbo
+  referenced_table: UserMaster
+  referenced_columns:
+  - UserMasterId
+  on_delete: null
+  on_update: null
+  is_disabled: false
+- constraint_name: FK_Deal_AgentMaster_agentId
+  columns:
+  - AgentId
+  referenced_schema: dbo
+  referenced_table: AgentMaster
+  referenced_columns:
+  - AgentMasterId
+  on_delete: null
+  on_update: null
+  is_disabled: false
+unique_constraints: []
+indexes: []
+check_constraints: []
+keywords:
+- FFM
+- IP address
+- SSN
+- active deal
+- agent ID
+- agreement date
+- applicant count
+- applicant name
+- applicant surname
+- career
+relationships:
+  outgoing:
+  - to_schema: dbo
+    to_table: UserMaster
+    via_columns:
+    - CreatedBy
+    relationship_type: many_to_one
+  - to_schema: dbo
+    to_table: UserMaster
+    via_columns:
+    - UpdatedBy
+    relationship_type: many_to_one
+  - to_schema: dbo
+    to_table: AgentMaster
+    via_columns:
+    - AgentId
+    relationship_type: many_to_one
+  incoming:
+  - from_schema: dbo
+    from_table: DealDocument
+    via_columns:
+    - DealId
+    relationship_type: one_to_many
+  many_to_many: []
+statistics:
+  total_columns: 21
+  nullable_columns: 2
+  computed_columns: 0
+  indexed_columns: 0

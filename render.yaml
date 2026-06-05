@@ -1,0 +1,24 @@
+# Render Blueprint (alternative to Hugging Face Spaces). Bring your own Neon Postgres.
+services:
+  - type: web
+    name: dbwhisper
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    # Honor Render's injected $PORT (HF uses the Dockerfile's 7860 default).
+    dockerCommand: sh -c "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-7860}"
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: EMBEDDING_PROVIDER
+        value: google
+      # Secrets — set these in the Render dashboard (never committed):
+      - key: POSTGRES_CONNECTION_STRING
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: CORS_ALLOW_ORIGINS
+        sync: false

@@ -1,0 +1,115 @@
+table_name: Role
+schema: dbo
+object_type: table
+description: This table contains the different user roles available within the system,
+  defining various levels of access and permissions. Each entry represents a distinct
+  role that can be assigned to users to control their capabilities and data visibility.
+created_date: null
+modified_date: null
+columns:
+- name: RoleId
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: A unique numeric identifier for each user role within the system.
+  keywords:
+  - ID
+  - identifier
+  - role number
+- name: RoleName
+  type: nvarchar(50) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: nvarchar(50) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 50
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The name of the user role, such as 'Administrator' or 'Viewer'.
+  keywords:
+  - name
+  - title
+  - permission level
+- name: IsActive
+  type: bit
+  sql_type: bit
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: A flag to indicate whether the role is currently active and available
+    for assignment.
+  keywords:
+  - status
+  - active
+  - enabled
+primary_key:
+  constraint_name: PK_Role
+  columns:
+  - RoleId
+  column_details:
+  - name: RoleId
+    ordinal: 1
+    is_descending: false
+foreign_keys: []
+unique_constraints: []
+indexes: []
+check_constraints: []
+keywords:
+- ID
+- active
+- enabled
+- identifier
+- name
+- permission level
+- role number
+- status
+- title
+relationships:
+  outgoing: []
+  incoming:
+  - from_schema: dbo
+    from_table: UserMaster
+    via_columns:
+    - RoleId
+    relationship_type: one_to_many
+  - from_schema: dbo
+    from_table: MenuRole
+    via_columns:
+    - RoleId
+    relationship_type: one_to_many
+  many_to_many:
+  - via_table: MenuRole
+    via_schema: dbo
+    to_table: Menu
+    to_schema: dbo
+    via_columns:
+    - RoleId
+    relationship_type: many_to_many
+statistics:
+  total_columns: 3
+  nullable_columns: 0
+  computed_columns: 0
+  indexed_columns: 0

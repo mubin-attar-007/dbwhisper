@@ -1,0 +1,588 @@
+table_name: AgentMaster
+schema: dbo
+object_type: table
+description: This table is the master list of all agents, containing their personal,
+  professional, and contact information. It serves as a central repository for agent
+  data, including their system credentials and current employment status. Use this
+  table to get a comprehensive view of an agent's details and access information.
+created_date: null
+modified_date: null
+columns:
+- name: AgentMasterId
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Unique identifier for each agent in the master list.
+  keywords:
+  - agent ID
+  - primary key
+  - agent number
+- name: UserMasterId
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Identifier linking the agent to their corresponding user account in
+    the system.
+  keywords:
+  - user ID
+  - account link
+  - system user
+- name: FirstName
+  type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 100
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The agent's legal first name.
+  keywords:
+  - first name
+  - given name
+  - agent name
+- name: LastName
+  type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 100
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The agent's legal last name.
+  keywords:
+  - last name
+  - surname
+  - family name
+- name: DOB
+  type: date
+  sql_type: date
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The agent's date of birth.
+  keywords:
+  - date of birth
+  - birthday
+  - age
+- name: Email
+  type: varchar(200) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(200) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 200
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The agent's primary business email address.
+  keywords:
+  - email
+  - contact email
+  - electronic mail
+- name: SSN
+  type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 50
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The agent's Social Security Number for identification and payroll purposes.
+  keywords:
+  - SSN
+  - social security
+  - tax ID
+- name: ContactNumber
+  type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 50
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The agent's primary phone number for communication.
+  keywords:
+  - phone number
+  - contact
+  - mobile number
+- name: Designation
+  type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 50
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The agent's job title or role within the organization.
+  keywords:
+  - job title
+  - position
+  - role
+- name: NPN
+  type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 50
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The agent's National Producer Number (NPN) for licensing and regulatory
+    tracking.
+  keywords:
+  - NPN
+  - producer number
+  - license number
+- name: ChaseExt
+  type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 50
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The agent's phone extension for the Chase data system.
+  keywords:
+  - chase extension
+  - phone extension
+  - contact
+- name: ChaseDataUsername
+  type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 100
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The agent's username for logging into the ChaseData system.
+  keywords:
+  - chase username
+  - login
+  - credentials
+- name: ChaseDataPassword
+  type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 50
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The agent's password for the ChaseData system.
+  keywords:
+  - chase password
+  - login
+  - credentials
+- name: HealthSherpaUsername
+  type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 100
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The agent's username for logging into the HealthSherpa platform.
+  keywords:
+  - healthsherpa username
+  - login
+  - credentials
+- name: HealthSherpaPassword
+  type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 50
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The agent's password for the HealthSherpa platform.
+  keywords:
+  - healthsherpa password
+  - login
+  - credentials
+- name: MyMfgUsername
+  type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 100
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The agent's username for logging into the MyMfg system.
+  keywords:
+  - mymfg username
+  - login
+  - credentials
+- name: MyMfgPassword
+  type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 50
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The agent's password for the MyMfg system.
+  keywords:
+  - mymfg password
+  - login
+  - credentials
+- name: FfmUsername
+  type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 100
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The agent's username for the Federally-Facilitated Marketplace (FFM).
+  keywords:
+  - FFM username
+  - marketplace login
+  - credentials
+- name: Forwarding
+  type: varchar(150) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(150) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 150
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The designated email or address for forwarding communications.
+  keywords:
+  - forwarding address
+  - email forwarding
+  - routing
+- name: PayStructure
+  type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 50
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: Indicates the agent's compensation or commission plan.
+  keywords:
+  - compensation
+  - commission
+  - payment plan
+- name: IsActive
+  type: bit
+  sql_type: bit
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Indicates whether the agent's account is currently active or inactive.
+  keywords:
+  - status
+  - active
+  - enabled
+- name: CreatedBy
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Identifier of the user who originally added the agent's record.
+  keywords:
+  - created by
+  - record author
+  - originator
+- name: CreatedOn
+  type: datetime
+  sql_type: datetime
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Timestamp indicating when the agent's record was first created.
+  keywords:
+  - creation date
+  - start date
+  - record date
+- name: UpdatedBy
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Identifier of the user who last modified the agent's record.
+  keywords:
+  - updated by
+  - modified by
+  - last editor
+- name: UpdatedOn
+  type: datetime
+  sql_type: datetime
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Timestamp indicating when the agent's record was last modified.
+  keywords:
+  - last updated
+  - modification date
+  - last change
+- name: IP
+  type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 50
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The IP address from which the agent's record was last updated.
+  keywords:
+  - IP address
+  - network address
+  - last location
+primary_key:
+  constraint_name: PK_AgentMaster
+  columns:
+  - AgentMasterId
+  column_details:
+  - name: AgentMasterId
+    ordinal: 1
+    is_descending: false
+foreign_keys:
+- constraint_name: FK_AgentMaster_UserMaster_UpdatedBy
+  columns:
+  - UpdatedBy
+  referenced_schema: dbo
+  referenced_table: UserMaster
+  referenced_columns:
+  - UserMasterId
+  on_delete: null
+  on_update: null
+  is_disabled: false
+- constraint_name: FK_AgentMaster_UserMaster_CreatedBy
+  columns:
+  - CreatedBy
+  referenced_schema: dbo
+  referenced_table: UserMaster
+  referenced_columns:
+  - UserMasterId
+  on_delete: null
+  on_update: null
+  is_disabled: false
+- constraint_name: FK_AgentMaster_UserMaster_UserId
+  columns:
+  - UserMasterId
+  referenced_schema: dbo
+  referenced_table: UserMaster
+  referenced_columns:
+  - UserMasterId
+  on_delete: null
+  on_update: null
+  is_disabled: false
+unique_constraints: []
+indexes: []
+check_constraints: []
+keywords:
+- FFM username
+- IP address
+- NPN
+- SSN
+- account link
+- active
+- age
+- agent ID
+- agent name
+- agent number
+relationships:
+  outgoing:
+  - to_schema: dbo
+    to_table: UserMaster
+    via_columns:
+    - UpdatedBy
+    relationship_type: many_to_one
+  - to_schema: dbo
+    to_table: UserMaster
+    via_columns:
+    - CreatedBy
+    relationship_type: many_to_one
+  - to_schema: dbo
+    to_table: UserMaster
+    via_columns:
+    - UserMasterId
+    relationship_type: many_to_one
+  incoming:
+  - from_schema: dbo
+    from_table: Deal
+    via_columns:
+    - AgentId
+    relationship_type: one_to_many
+  many_to_many: []
+statistics:
+  total_columns: 26
+  nullable_columns: 17
+  computed_columns: 0
+  indexed_columns: 0

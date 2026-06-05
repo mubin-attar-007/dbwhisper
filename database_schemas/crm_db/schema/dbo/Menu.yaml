@@ -1,0 +1,249 @@
+table_name: Menu
+schema: dbo
+object_type: table
+description: This table stores information about the navigational menus used throughout
+  the application interface. It defines the structure of the menus, including the
+  display text, target URLs, and icons for each item. The table also controls the
+  hierarchical relationships and display order of menu items, as well as their visibility
+  to different user types.
+created_date: null
+modified_date: null
+columns:
+- name: MenuId
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: A unique identifier for each menu item.
+  keywords:
+  - menu ID
+  - identifier
+  - primary key
+- name: MenuName
+  type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 50
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The display name of the menu item as seen by users.
+  keywords:
+  - menu name
+  - label
+  - navigation text
+- name: MenuNameId
+  type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 50
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: A unique text-based identifier for the menu item, often used for programmatic
+    access.
+  keywords:
+  - menu name ID
+  - text identifier
+  - system name
+- name: PageURL
+  type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 100
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The web address or link that the menu item navigates to when clicked.
+  keywords:
+  - URL
+  - link
+  - web page
+- name: Icon
+  type: varchar(30) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(30) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 30
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The name or class of the icon displayed next to the menu item.
+  keywords:
+  - icon
+  - image
+  - symbol
+- name: ParentId
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The identifier of the parent menu item, which creates a hierarchical
+    or nested menu structure.
+  keywords:
+  - parent menu
+  - submenu
+  - hierarchy
+- name: DisplayOrder
+  type: smallint
+  sql_type: smallint
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: A number that determines the order in which menu items appear.
+  keywords:
+  - sort order
+  - sequence
+  - position
+- name: IsHaveChild
+  type: bit
+  sql_type: bit
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: A flag indicating whether this menu item has any sub-items or children.
+  keywords:
+  - has submenu
+  - parent item
+  - nested menu
+- name: IsActive
+  type: bit
+  sql_type: bit
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: A flag indicating whether the menu item is currently enabled and visible
+    to users.
+  keywords:
+  - status
+  - enabled
+  - visible
+- name: IsShowtoAdmin
+  type: bit
+  sql_type: bit
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: A flag indicating whether the menu item is visible only to administrative
+    users.
+  keywords:
+  - admin visibility
+  - permissions
+  - access control
+primary_key:
+  constraint_name: PK_Menu
+  columns:
+  - MenuId
+  column_details:
+  - name: MenuId
+    ordinal: 1
+    is_descending: false
+foreign_keys: []
+unique_constraints: []
+indexes: []
+check_constraints: []
+keywords:
+- URL
+- access control
+- admin visibility
+- enabled
+- has submenu
+- hierarchy
+- icon
+- identifier
+- image
+- label
+relationships:
+  outgoing: []
+  incoming:
+  - from_schema: dbo
+    from_table: MenuRole
+    via_columns:
+    - MenuId
+    relationship_type: one_to_many
+  many_to_many:
+  - via_table: MenuRole
+    via_schema: dbo
+    to_table: Role
+    to_schema: dbo
+    via_columns:
+    - MenuId
+    relationship_type: many_to_many
+statistics:
+  total_columns: 10
+  nullable_columns: 0
+  computed_columns: 0
+  indexed_columns: 0

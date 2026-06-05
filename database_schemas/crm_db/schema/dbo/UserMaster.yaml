@@ -1,0 +1,441 @@
+table_name: UserMaster
+schema: dbo
+object_type: table
+description: The UserMaster table serves as the foundational user management system
+  in EndeavorCRM, centralizing all account information required for authentication,
+  role-based access control, and user activity tracking. It enables secure login processes,
+  including two-factor authentication, while maintaining personal details, role assignments,
+  and audit logs for compliance. This table directly supports workforce management
+  by linking user credentials to operational permissions and agent profiles.
+created_date: null
+modified_date: null
+columns:
+- name: UserMasterId
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Unique identifier for each user account, used to reference user records
+    across the system.
+  keywords:
+  - user ID
+  - account ID
+  - unique identifier
+- name: Username
+  type: varchar(200) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(200) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 200
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: Login name used by users to access the system, ensuring individual
+    account identification.
+  keywords:
+  - login name
+  - user name
+  - account username
+- name: UserPassword
+  type: varchar(500) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(500) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 500
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: Encrypted password for user authentication, secured to protect account
+    access.
+  keywords:
+  - password
+  - login credentials
+  - secure access
+- name: LastName
+  type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 100
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: User's family name for personal identification and record-keeping purposes.
+  keywords:
+  - full name
+  - user name
+  - contact name
+- name: FirstName
+  type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 100
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: User's given name for personal identification and record-keeping purposes.
+  keywords:
+  - full name
+  - user name
+  - contact name
+- name: ContactNumber
+  type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 50
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: Primary phone number for user communication and account verification.
+  keywords:
+  - phone number
+  - contact info
+  - mobile number
+- name: RoleId
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Reference to the user's role in the system, determining access permissions
+    and responsibilities.
+  keywords:
+  - user role
+  - access level
+  - role assignment
+- name: IsFirstTimeLogin
+  type: bit
+  sql_type: bit
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Indicator for new users requiring initial setup or orientation upon
+    first login.
+  keywords:
+  - new user
+  - initial login
+  - first access
+- name: TwoStepAuth
+  type: bit
+  sql_type: bit
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Toggle for enabling/disabling two-factor authentication to enhance
+    account security.
+  keywords:
+  - 2FA
+  - security setting
+  - two-step verification
+- name: UserAccess
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Numeric value representing user access level or permissions within
+    the system.
+  keywords:
+  - access level
+  - permissions
+  - security access
+- name: IsActive
+  type: bit
+  sql_type: bit
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Status flag indicating whether the user account is currently enabled
+    for system access.
+  keywords:
+  - account status
+  - active user
+  - enabled account
+- name: CreatedBy
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: User ID of the administrator who created this account, for audit and
+    accountability purposes.
+  keywords:
+  - creator ID
+  - admin user
+  - modifier ID
+- name: CreatedOn
+  type: datetime
+  sql_type: datetime
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Timestamp of when the user account was initially created in the system.
+  keywords:
+  - creation date
+  - last modified
+  - timestamp
+- name: UpdatedBy
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: User ID of the last administrator who modified this account, for audit
+    and accountability purposes.
+  keywords:
+  - modifier ID
+  - admin user
+  - change history
+- name: UpdatedOn
+  type: datetime
+  sql_type: datetime
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Timestamp of the most recent modification to the user account details.
+  keywords:
+  - last modified
+  - update date
+  - timestamp
+- name: IP
+  type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 50
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: Network address used during user login, recorded for security monitoring
+    and audit trails.
+  keywords:
+  - login IP
+  - network address
+  - connection IP
+primary_key:
+  constraint_name: PK_UserMaster
+  columns:
+  - UserMasterId
+  column_details:
+  - name: UserMasterId
+    ordinal: 1
+    is_descending: false
+foreign_keys:
+- constraint_name: FK_UserMaster_Role_RoleId
+  columns:
+  - RoleId
+  referenced_schema: dbo
+  referenced_table: Role
+  referenced_columns:
+  - RoleId
+  on_delete: null
+  on_update: null
+  is_disabled: false
+unique_constraints: []
+indexes: []
+check_constraints: []
+keywords:
+- 2FA
+- access level
+- account creation date
+- account name
+- account number
+- account password
+- account status
+- audit trail
+- authentication
+- enabled/disabled
+relationships:
+  outgoing:
+  - to_schema: dbo
+    to_table: Role
+    via_columns:
+    - RoleId
+    relationship_type: many_to_one
+  incoming:
+  - from_schema: dbo
+    from_table: AgentMaster
+    via_columns:
+    - UpdatedBy
+    relationship_type: one_to_many
+  - from_schema: dbo
+    from_table: AgentMaster
+    via_columns:
+    - CreatedBy
+    relationship_type: one_to_many
+  - from_schema: dbo
+    from_table: AgentMaster
+    via_columns:
+    - UserMasterId
+    relationship_type: one_to_many
+  - from_schema: dbo
+    from_table: ChatConnection
+    via_columns:
+    - UserMasterId
+    relationship_type: one_to_many
+  - from_schema: dbo
+    from_table: ChatMessage
+    via_columns:
+    - ToUserId
+    relationship_type: one_to_many
+  - from_schema: dbo
+    from_table: ChatMessage
+    via_columns:
+    - FromUserId
+    relationship_type: one_to_many
+  - from_schema: dbo
+    from_table: ChatRoom
+    via_columns:
+    - CreatedBy
+    relationship_type: one_to_many
+  - from_schema: dbo
+    from_table: ChatRoom
+    via_columns:
+    - UpdatedBy
+    relationship_type: one_to_many
+  - from_schema: dbo
+    from_table: ChatRoomMember
+    via_columns:
+    - UserMasterId
+    relationship_type: one_to_many
+  - from_schema: dbo
+    from_table: Deal
+    via_columns:
+    - CreatedBy
+    relationship_type: one_to_many
+  - from_schema: dbo
+    from_table: Deal
+    via_columns:
+    - UpdatedBy
+    relationship_type: one_to_many
+  - from_schema: dbo
+    from_table: LoginHistory
+    via_columns:
+    - UserMasterId
+    relationship_type: one_to_many
+  many_to_many:
+  - via_table: ChatRoomMember
+    via_schema: dbo
+    to_table: ChatRoom
+    to_schema: dbo
+    via_columns:
+    - UserMasterId
+    relationship_type: many_to_many
+statistics:
+  total_columns: 16
+  nullable_columns: 3
+  computed_columns: 0
+  indexed_columns: 0
