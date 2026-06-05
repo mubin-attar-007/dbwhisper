@@ -245,14 +245,34 @@ def debug_model_call(
     return response
 
 
+def _dialect_directive(db_type: str | None) -> str:
+    """Return a strong dialect instruction so the LLM emits dialect-correct SQL.
+
+    Without this the model guesses (e.g. emits T-SQL ``SELECT TOP n`` against PostgreSQL).
+    """
+    dt = (db_type or "").strip().lower()
+    if "postgre" in dt or "psycopg" in dt:
+        name, hint = "PostgreSQL", "Use `LIMIT n` for row limits (never `TOP`)."
+    elif "mysql" in dt or "maria" in dt:
+        name, hint = "MySQL", "Use `LIMIT n` for row limits (never `TOP`)."
+    elif "sqlite" in dt:
+        name, hint = "SQLite", "Use `LIMIT n` for row limits (never `TOP`)."
+    elif "mssql" in dt or "sqlserver" in dt or "sql server" in dt or "pyodbc" in dt:
+        name, hint = "Microsoft SQL Server (T-SQL)", "Use `SELECT TOP n` for row limits (never `LIMIT`)."
+    else:
+        return ""
+    return f"TARGET SQL DIALECT: {name}. Generate {name}-compatible SQL only. {hint}\n\n"
+
+
 def _build_system_prompt(
     db_flag: str,
     user_id: str | None = None,
     session_id: str | None = None,
     conversation_summary: str = "",
     previous_context: str = "",
+    db_type: str | None = None,
 ) -> str:
-    return SQL_AGENT_PROMPT.format(
+    prompt = SQL_AGENT_PROMPT.format(
         db_flag=db_flag,
         current_time=datetime.utcnow().isoformat(),
         user_id=user_id or "Unknown",
@@ -260,6 +280,7 @@ def _build_system_prompt(
         conversation_summary=conversation_summary,
         previous_context=previous_context,
     )
+    return _dialect_directive(db_type) + prompt
 
 
 @traceable
@@ -380,7 +401,7 @@ def get_llm(provider: str | None = None) -> BaseChatModel:
                 temperature=0.1,
             ),
             "gemini": lambda: ChatGoogleGenerativeAI(
-                model="gemini-2.5-pro",
+                model="gemini-2.5-flash",
                 temperature=0.1,
             ),
         }
@@ -431,6 +452,7 @@ def get_cached_agent_with_context(
     db_flag: str,
     user_id: str | None = None,
     session_id: str | None = None,
+    db_type: str | None = None,
 ) -> Any:
     """Return an agent runnable with conversation context awareness.
 
@@ -446,11 +468,12 @@ def get_cached_agent_with_context(
         session_id=session_id,
         conversation_summary=conversation_summary,
         previous_context=previous_context,
+        db_type=db_type,
     )
     return create_sql_agent(llm, system_prompt)
 
 
-def get_cached_agent(provider: str, db_flag: str) -> Any:
+def get_cached_agent(provider: str, db_flag: str, db_type: str | None = None) -> Any:
     """Return an agent runnable for the provider and database context.
 
     Note: Use get_cached_agent_with_context for conversation-aware agents.
@@ -458,7 +481,7 @@ def get_cached_agent(provider: str, db_flag: str) -> Any:
     """
 
     llm = get_llm(provider)
-    system_prompt = _build_system_prompt(db_flag)
+    system_prompt = _build_system_prompt(db_flag, db_type=db_type)
     return create_sql_agent(llm, system_prompt)
 
 
