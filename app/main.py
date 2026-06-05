@@ -260,13 +260,16 @@ async def execute_query(request: QueryRequest) -> QueryResponse:
                         request.db_flag,
                         user_id=request.user_id,
                         session_id=request.session_id,
+                        db_type=db_config.get("db_type"),
                     )
                     logger.debug(
                         f"Using context-aware agent for user={request.user_id}, session={request.session_id}"
                     )
                 else:
                     # Use stateless agent (backward compatible)
-                    agent = get_cached_agent(provider, request.db_flag)
+                    agent = get_cached_agent(
+                        provider, request.db_flag, db_type=db_config.get("db_type")
+                    )
                     logger.debug("Using stateless agent (no user/session context)")
 
                 with agent_context(
@@ -292,21 +295,18 @@ async def execute_query(request: QueryRequest) -> QueryResponse:
             except Exception as exc:
                 last_error = exc
                 error_str = str(exc).lower()
-
-                # Detect rate limit or provider errors
                 is_rate_limit = "429" in error_str or ("rate" in error_str and "limit" in error_str)
-                is_provider_error = "provider returned error" in error_str
 
-                if is_rate_limit or is_provider_error:
-                    logger.warning(
-                        "Provider %s hit rate limit or temporary error (attempt %d/%d). Trying next provider.",
-                        provider,
-                        provider_idx + 1,
-                        len(providers),
-                    )
-                    logger.exception(
-                        "Provider %s failed during SQL generation", _sanitize(provider)
-                    )
+                # Always surface why a provider failed (previously only rate-limit/provider
+                # errors were logged, so genuine failures fell back silently and undiagnosed).
+                logger.warning(
+                    "Provider %s failed during SQL generation (attempt %d/%d, rate_limit=%s): %s",
+                    _sanitize(provider),
+                    provider_idx + 1,
+                    len(providers),
+                    is_rate_limit,
+                    _sanitize(str(exc), max_len=400),
+                )
 
                 # Continue to next provider if available
                 if provider_idx < len(providers) - 1:
