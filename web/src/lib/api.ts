@@ -1,13 +1,14 @@
 /**
  * Typed API client for the DBWhisper natural-language-to-SQL backend.
  *
- * The base URL is read from the public env var `NEXT_PUBLIC_API_BASE_URL`
- * and falls back to `http://localhost:8000` for local development.
+ * Requests go to the same-origin `/api/*` path, which Next.js rewrites to the backend
+ * (see next.config.mjs `rewrites` + the server-side `API_PROXY_TARGET` env var). This keeps
+ * the browser same-origin (no CORS) and hides the backend URL. Override with
+ * `NEXT_PUBLIC_API_BASE` only if you need to bypass the proxy and call the API directly.
  */
 
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/+$/, "") ||
-  "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_BASE?.replace(/\/+$/, "") || "/api";
 
 // ---------------------------------------------------------------------------
 // Types matching the backend contract
