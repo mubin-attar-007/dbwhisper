@@ -1,0 +1,46 @@
+EndeavorCRM Database Overview
+
+EndeavorCRM is a centralized Customer Relationship Management (CRM) database designed to support sales operations, agent management, user authentication, internal communication, and role-based access control within an organization. Extracted on 2025-11-24, it contains a single schema (dbo) with 14 tables that collectively manage user accounts, agents, leads, deals, messaging, authentication, menus, and system security.
+
+The database provides a unified platform for maintaining organizational workflows, ensuring secure access, tracking customer interactions, and supporting operational efficiency.
+
+Key Functional Areas
+1. User and Agent Management
+UserMaster: Stores core user account details, including login credentials, roles, personal information, and account status. Supports authentication (including Two-Factor Auth), role-based access, and audit tracking.
+AgentMaster: Maintains agent profiles linked to user accounts. Captures contact information, identification numbers (SSN, NPN), system credentials for external platforms, pay structures, and active status. Essential for HR and operational workflows.
+Role: Defines user roles and their active status, enabling role-based access control across the application.
+
+2. Lead and Deal Tracking
+LeadMaster: Central repository for managing potential customer leads. Stores contact details, interested coverage, lead status, assigned agent, and notes. Supports sales pipeline operations and CRM workflows.
+Deal: Tracks active or closed business deals, capturing client information, coverage type, financial details, assigned agent, required documentation, and activity status.
+DealDocument: Stores documents associated with each deal, maintaining file metadata and upload dates for compliance and operational review.
+
+3. Messaging and Collaboration
+ChatRoom: Manages chat room metadata, creation and modification history, and active status. Supports real-time communication.
+ChatRoomMember: Junction table linking users to chat rooms, enabling many-to-many participation and controlled access.
+ChatConnection: Tracks active user sessions in the chat system.
+ChatMessage: Logs messages between users, capturing sender and recipient details, chat room, message content, timestamp, read status, and attachments.
+
+4. Authentication and Security
+LoginHistory: Records successful user logins with timestamp and IP address, supporting auditing and security monitoring.
+LoginFailure: Captures failed login attempts, including username, timestamp, and IP address, helping identify potential unauthorized access.
+
+5. Application Navigation
+Menu: Organizes the application’s navigation structure with identifiers, display names, URLs, icons, parent-child relationships, and visibility rules.
+MenuRole: Junction table linking menus to roles, enforcing role-based access control over system navigation.
+
+Database Design Principles
+Data Integrity and Relationships: Tables utilize primary and foreign key constraints to maintain relationships, e.g., AgentMaster links to UserMaster, Deal links to AgentMaster, and ChatRoomMember connects UserMaster with ChatRoom.
+Many-to-Many Management: Handled via junction tables (ChatRoomMember, MenuRole) to support flexible user-to-room participation and menu-to-role access.
+Audit and Traceability: Most tables track creation and update timestamps, user identifiers, and IP addresses, ensuring accountability and operational transparency.
+Modular Architecture: The schema allows expansion and integration with external systems, such as HealthSherpa, MyMfg, and ChaseData, through credential management in AgentMaster.
+
+Functional Summary
+EndeavorCRM serves as a robust CRM platform with integrated modules for:
+User and agent management – secure login, profile management, and role-based access.
+Lead and deal management – capturing and tracking potential and ongoing sales activities.
+Messaging and collaboration – real-time chat, room membership management, and message tracking.
+Security and auditing – login history, failure monitoring, and traceability of user actions.
+Role-based navigation – structured menu control for different user roles.
+
+This cohesive design ensures operational efficiency, data security, compliance, and scalability, making EndeavorCRM a reliable foundation for managing customer relationships, agent operations, and internal communications in a modern business environment.

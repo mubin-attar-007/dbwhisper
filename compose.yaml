@@ -1,0 +1,38 @@
+name: dbwhisper
+
+# Local dev stack: Postgres (with pgvector) + the API container.
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: dbwhisper
+      POSTGRES_PASSWORD: dbwhisper
+      POSTGRES_DB: dbwhisper
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dbwhisper"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    env_file:
+      - .env
+    environment:
+      POSTGRES_CONNECTION_STRING: postgresql+psycopg://dbwhisper:dbwhisper@db:5432/dbwhisper
+      HOST: 0.0.0.0
+      PORT: 7860
+      APP_ENV: development
+      EMBEDDING_PROVIDER: google
+    ports:
+      - "8000:7860"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

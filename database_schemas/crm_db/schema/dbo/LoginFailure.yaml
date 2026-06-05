@@ -1,0 +1,120 @@
+table_name: LoginFailure
+schema: dbo
+object_type: table
+description: This table logs every unsuccessful login attempt to the system, providing
+  crucial data for security monitoring and auditing. Each record captures the username,
+  timestamp, and IP address of a failed login, which helps in identifying potential
+  security threats like brute-force attacks or other unauthorized access patterns.
+  Analyzing this data allows administrators to secure user accounts and maintain system
+  integrity.
+created_date: null
+modified_date: null
+columns:
+- name: LoginFailureId
+  type: bigint
+  sql_type: bigint
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: A unique identifier for each recorded login failure event.
+  keywords:
+  - ID
+  - record number
+  - failure key
+- name: Username
+  type: varchar(200) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(200) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 200
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The username that was used during the unsuccessful login attempt.
+  keywords:
+  - user
+  - login name
+  - account
+- name: CreatedOn
+  type: datetime
+  sql_type: datetime
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The exact date and time when the failed login attempt occurred.
+  keywords:
+  - timestamp
+  - date
+  - login time
+- name: IP
+  type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 50
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The IP address from which the failed login attempt originated.
+  keywords:
+  - IP address
+  - location
+  - source
+primary_key:
+  constraint_name: PK_LoginFailure
+  columns:
+  - LoginFailureId
+  column_details:
+  - name: LoginFailureId
+    ordinal: 1
+    is_descending: false
+foreign_keys: []
+unique_constraints: []
+indexes: []
+check_constraints: []
+keywords:
+- ID
+- IP address
+- account
+- date
+- failure key
+- location
+- login name
+- login time
+- record number
+- source
+relationships:
+  outgoing: []
+  incoming: []
+  many_to_many: []
+statistics:
+  total_columns: 4
+  nullable_columns: 0
+  computed_columns: 0
+  indexed_columns: 0

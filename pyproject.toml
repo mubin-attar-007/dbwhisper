@@ -1,0 +1,114 @@
+[project]
+name = "dbwhisper"
+version = "0.1.0"
+description = "DBWhisper — a natural-language-to-SQL agent with multi-provider LLM fallback, schema-aware PGVector retrieval, and read-only safety enforcement."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    # Web
+    "fastapi>=0.121.1",
+    "uvicorn[standard]>=0.38.0",
+    "pydantic>=2.12.4",
+    "pydantic-settings>=2.6.0",
+    "python-dotenv>=1.2.1",
+    # SQL / data
+    "sqlalchemy>=2.0.44",
+    "sqlparse>=0.5.3",
+    "pyyaml>=6.0.2",
+    "numpy>=2.3.4",
+    "pandas>=2.3.3",
+    "matplotlib>=3.10.7",
+    "networkx>=3.5",
+    "tiktoken>=0.12.0",
+    # LLM providers (fallback chain in app/agent/chain.py)
+    "langchain>=1.0.5",
+    "langchain-core>=1.0.4",
+    "langchain-community>=0.4.1",
+    "langgraph>=1.0.3",
+    "langchain-groq>=1.0.0",
+    "langchain-google-genai>=3.0.3",
+    "langchain-openai>=1.0.3",
+    "langchain-deepseek>=1.0.1",
+    "langchain-anthropic>=1.1.0",
+    "groq>=0.33.0",
+    "langsmith>=0.4.45",
+    # Vector store + conversation checkpointing (Postgres / pgvector)
+    "langchain-postgres>=0.0.16",
+    "langgraph-checkpoint[postgres]>=3.0.1",
+    "langgraph-checkpoint-postgres>=3.0.1",
+    "psycopg[binary,pool]>=3.2.12",
+    "psycopg2-binary>=2.9.11",
+    # Target-database drivers
+    "pyodbc>=5.3.0",
+    "pymysql>=1.1.2",
+    "mysql-connector-python>=9.5.0",
+]
+
+[project.optional-dependencies]
+# Local/offline embeddings (heavy: pulls torch + transformers + sentence-transformers).
+# NOT installed by default — the deployed image uses the hosted Google embedding
+# provider (EMBEDDING_PROVIDER=google) to keep the image small and cold-starts fast.
+# Install locally with:  uv sync --extra local-embeddings
+local-embeddings = [
+    "langchain-huggingface>=1.0.1",
+    "sentence-transformers>=5.1.2",
+    "torch>=2.9.1",
+    "transformers>=4.57.1",
+    "einops>=0.8.1",
+    "huggingface-hub[hf-xet]>=0.36.0",
+    "hf-xet>=1.2.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.3",
+    "pytest-asyncio>=0.24.0",
+    "httpx>=0.27.0",
+    "ruff>=0.14.0",
+    "mypy>=1.13.0",
+    "vulture>=2.14",
+    "pre-commit>=4.0.0",
+    "types-pyyaml>=6.0.0",
+]
+
+[tool.uv]
+# Run-from-source project (uvicorn app.main:app); not a distributable package.
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["app", "db", "tests"]
+extend-exclude = ["database_schemas", "temp_output", "Temp", "Log", "app/static"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4", "SIM", "RUF"]
+# B008: FastAPI Depends() in defaults is idiomatic. E501: layout owned by the formatter.
+# E402: several modules intentionally import after load_dotenv()/logger setup.
+# RUF001: prompt templates use intentional Unicode (en dashes, curly quotes).
+ignore = ["B008", "E501", "E402", "RUF001"]
+
+[tool.ruff.lint.per-file-ignores]
+# Prompt templates carry literal tab/space indentation inside triple-quoted strings.
+"app/agent/prompt.py" = ["E101", "W191"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "db"]
+
+[tool.mypy]
+python_version = "3.13"
+plugins = ["pydantic.mypy"]
+mypy_path = "."
+explicit_package_bases = true
+namespace_packages = true
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_ignores = false
+exclude = ['database_schemas/', 'temp_output/', '\.venv/']
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+asyncio_mode = "auto"
+filterwarnings = ["ignore::DeprecationWarning"]

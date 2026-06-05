@@ -1,0 +1,243 @@
+table_name: ChatMessage
+schema: dbo
+object_type: table
+description: This table stores individual chat messages sent between users on the
+  platform, either directly or within a chat room. It serves as a complete log of
+  all communications, linking the sender, the recipient or chat room, and the message
+  content itself. Each row represents a single message, tracking its content and delivery
+  status.
+created_date: null
+modified_date: null
+columns:
+- name: ChatMessageId
+  type: bigint
+  sql_type: bigint
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: A unique identifier for each chat message sent on the platform.
+  keywords:
+  - message ID
+  - chat identifier
+  - communication number
+- name: FromUserId
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The unique identifier for the user who sent the message.
+  keywords:
+  - sender ID
+  - author
+  - originator
+- name: ToUserId
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The unique identifier for the user who received the message; this is
+    null for messages sent in a chat room.
+  keywords:
+  - recipient ID
+  - addressee
+  - receiver
+- name: ChatRoomId
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The identifier for the chat room where the message was posted; this
+    is null for direct messages between two users.
+  keywords:
+  - chat group
+  - conversation channel
+  - room ID
+- name: Message
+  type: nvarchar(4000) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: nvarchar(4000) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 4000
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The text content of the message that was sent.
+  keywords:
+  - message text
+  - chat content
+  - communication body
+- name: SentAt
+  type: datetime
+  sql_type: datetime
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The exact date and time the message was sent.
+  keywords:
+  - message time
+  - send date
+  - timestamp
+- name: IsRead
+  type: bit
+  sql_type: bit
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: A flag indicating whether the recipient has read the message.
+  keywords:
+  - read status
+  - message opened
+  - seen
+- name: IsAttachment
+  type: bit
+  sql_type: bit
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: A flag indicating if the message is a file attachment rather than plain
+    text.
+  keywords:
+  - file sent
+  - has attachment
+  - is file
+primary_key:
+  constraint_name: PK_ChatMessage
+  columns:
+  - ChatMessageId
+  column_details:
+  - name: ChatMessageId
+    ordinal: 1
+    is_descending: false
+foreign_keys:
+- constraint_name: FK_ChatMessage_ChatRoom
+  columns:
+  - ChatRoomId
+  referenced_schema: dbo
+  referenced_table: ChatRoom
+  referenced_columns:
+  - ChatRoomId
+  on_delete: null
+  on_update: null
+  is_disabled: false
+- constraint_name: FK_ChatMessage_UserMaster1
+  columns:
+  - ToUserId
+  referenced_schema: dbo
+  referenced_table: UserMaster
+  referenced_columns:
+  - UserMasterId
+  on_delete: null
+  on_update: null
+  is_disabled: false
+- constraint_name: FK_ChatMessage_UserMaster
+  columns:
+  - FromUserId
+  referenced_schema: dbo
+  referenced_table: UserMaster
+  referenced_columns:
+  - UserMasterId
+  on_delete: null
+  on_update: null
+  is_disabled: false
+unique_constraints: []
+indexes: []
+check_constraints: []
+keywords:
+- addressee
+- author
+- chat content
+- chat group
+- chat identifier
+- communication body
+- communication number
+- conversation channel
+- file sent
+- has attachment
+relationships:
+  outgoing:
+  - to_schema: dbo
+    to_table: ChatRoom
+    via_columns:
+    - ChatRoomId
+    relationship_type: many_to_one
+  - to_schema: dbo
+    to_table: UserMaster
+    via_columns:
+    - ToUserId
+    relationship_type: many_to_one
+  - to_schema: dbo
+    to_table: UserMaster
+    via_columns:
+    - FromUserId
+    relationship_type: many_to_one
+  incoming: []
+  many_to_many: []
+statistics:
+  total_columns: 8
+  nullable_columns: 2
+  computed_columns: 0
+  indexed_columns: 0

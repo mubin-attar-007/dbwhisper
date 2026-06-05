@@ -1,0 +1,41 @@
+# ─── Python ───
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# ─── Tooling caches ───
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.import_linter_cache/
+
+# ─── Virtual environments ───
+.venv/
+venv/
+env/
+
+# ─── Secrets & local env (NEVER commit real secrets) ───
+.env
+.env.*
+!.env.example
+
+# ─── Logs & scratch ───
+Log/
+Temp/
+*.log
+temp_output/
+
+# ─── Editors / OS ───
+.idea/
+.vscode/*
+!.vscode/settings.json
+.DS_Store
+Thumbs.db
+
+# ─── App-specific generated artifacts ───
+app/static/*.backup
+
+# NOTE: YAML is intentionally NOT ignored — schema_index/metadata/table specs under
+# database_schemas/, plus compose.yaml / render.yaml / CI workflows, must be committed.

@@ -1,0 +1,335 @@
+table_name: LeadMaster
+schema: dbo
+object_type: table
+description: The LeadMaster table is the central repository for all potential customer
+  leads. It captures essential information for tracking prospects through the sales
+  pipeline, from initial contact to final qualification. This table includes lead
+  contact details, the source of the lead, their product interest, and the agent assigned
+  to them.
+created_date: null
+modified_date: null
+columns:
+- name: LeadId
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: A unique identifier for each individual lead in the system.
+  keywords:
+  - lead ID
+  - prospect number
+  - unique identifier
+- name: LeadSource
+  type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(100) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 100
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The marketing channel or origin from which the lead was generated,
+    such as a web form or referral.
+  keywords:
+  - lead origin
+  - marketing channel
+  - referral source
+- name: CustomerName
+  type: varchar(200) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(200) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 200
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The full name of the potential customer or lead.
+  keywords:
+  - prospect name
+  - client name
+  - lead name
+- name: ContactNumber
+  type: varchar(20) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(20) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 20
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The primary phone number for contacting the lead.
+  keywords:
+  - phone number
+  - mobile number
+  - telephone
+- name: Email
+  type: varchar(150) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(150) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 150
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The email address of the potential customer.
+  keywords:
+  - email address
+  - electronic mail
+  - contact email
+- name: Address
+  type: varchar(500) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(500) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 500
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The physical or mailing address associated with the lead.
+  keywords:
+  - mailing address
+  - physical location
+  - street address
+- name: InterestedCoverage
+  type: varchar(200) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(200) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 200
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The specific type of product or insurance coverage the lead has expressed
+    interest in.
+  keywords:
+  - product interest
+  - coverage type
+  - desired policy
+- name: LeadStatus
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The current stage of the lead within the sales funnel, such as New,
+    Contacted, or Qualified.
+  keywords:
+  - sales stage
+  - prospect status
+  - funnel position
+- name: AssignedAgentId
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The unique identifier for the sales agent assigned to manage and follow
+    up with this lead.
+  keywords:
+  - sales agent
+  - assigned representative
+  - account owner
+- name: Notes
+  type: varchar collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar collate "sql_latin1_general_cp1_ci_as"
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: Contains any relevant comments, discussion history, or additional information
+    recorded about the lead.
+  keywords:
+  - comments
+  - remarks
+  - lead details
+- name: CreatedBy
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The unique identifier of the user who initially entered the lead into
+    the system.
+  keywords:
+  - created by user
+  - entered by
+  - record author
+- name: CreatedOn
+  type: datetime
+  sql_type: datetime
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The date and time when the lead was first created in the system.
+  keywords:
+  - creation date
+  - entry date
+  - record timestamp
+- name: UpdatedBy
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The unique identifier of the user who last modified the lead's record.
+  keywords:
+  - last modified by
+  - updated by user
+  - editor ID
+- name: UpdatedOn
+  type: datetime
+  sql_type: datetime
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The date and time when the lead's record was last updated.
+  keywords:
+  - last modified date
+  - update timestamp
+  - modification date
+- name: IsActive
+  type: bit
+  sql_type: bit
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: A flag indicating whether the lead record is currently active or has
+    been deactivated in the system.
+  keywords:
+  - active status
+  - record state
+  - lead activity
+primary_key:
+  constraint_name: PK__LeadMast__73EF78FA122D69C9
+  columns:
+  - LeadId
+  column_details:
+  - name: LeadId
+    ordinal: 1
+    is_descending: false
+foreign_keys: []
+unique_constraints: []
+indexes: []
+check_constraints: []
+keywords:
+- account owner
+- active status
+- assigned representative
+- client name
+- comments
+- contact email
+- coverage type
+- created by user
+- creation date
+- desired policy
+relationships:
+  outgoing: []
+  incoming: []
+  many_to_many: []
+statistics:
+  total_columns: 15
+  nullable_columns: 9
+  computed_columns: 0
+  indexed_columns: 0

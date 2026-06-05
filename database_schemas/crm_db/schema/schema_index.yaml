@@ -1,0 +1,280 @@
+database_name: EndeavorCRM
+extraction_date: '2025-12-02T07:06:39.507744+00:00'
+total_schemas: 1
+total_tables: 14
+total_views: 0
+schemas:
+- name: dbo
+  table_count: 14
+  view_count: 0
+tables:
+- table: AgentMaster
+  schema: dbo
+  object_type: table
+  keywords: []
+  column_names:
+  - AgentMasterId
+  - UserMasterId
+  - FirstName
+  - LastName
+  - DOB
+  - Email
+  - SSN
+  - ContactNumber
+  - Designation
+  - NPN
+  - ChaseExt
+  - ChaseDataUsername
+  - ChaseDataPassword
+  - HealthSherpaUsername
+  - HealthSherpaPassword
+  - MyMfgUsername
+  - MyMfgPassword
+  - FfmUsername
+  - Forwarding
+  - PayStructure
+  - IsActive
+  - CreatedBy
+  - CreatedOn
+  - UpdatedBy
+  - UpdatedOn
+  - IP
+  primary_key:
+  - AgentMasterId
+  has_foreign_keys: true
+  short_description: ''
+- table: UserMaster
+  schema: dbo
+  object_type: table
+  keywords: []
+  column_names:
+  - UserMasterId
+  - Username
+  - UserPassword
+  - LastName
+  - FirstName
+  - ContactNumber
+  - RoleId
+  - IsFirstTimeLogin
+  - TwoStepAuth
+  - UserAccess
+  - IsActive
+  - CreatedBy
+  - CreatedOn
+  - UpdatedBy
+  - UpdatedOn
+  - IP
+  primary_key:
+  - UserMasterId
+  has_foreign_keys: true
+  short_description: ''
+- table: Role
+  schema: dbo
+  object_type: table
+  keywords: []
+  column_names:
+  - RoleId
+  - RoleName
+  - IsActive
+  primary_key:
+  - RoleId
+  has_foreign_keys: false
+  short_description: ''
+- table: ChatConnection
+  schema: dbo
+  object_type: table
+  keywords: []
+  column_names:
+  - ChatConnectionId
+  - UserMasterId
+  - ConnectionId
+  - CreatedOn
+  primary_key:
+  - ChatConnectionId
+  has_foreign_keys: true
+  short_description: ''
+- table: ChatMessage
+  schema: dbo
+  object_type: table
+  keywords: []
+  column_names:
+  - ChatMessageId
+  - FromUserId
+  - ToUserId
+  - ChatRoomId
+  - Message
+  - SentAt
+  - IsRead
+  - IsAttachment
+  primary_key:
+  - ChatMessageId
+  has_foreign_keys: true
+  short_description: ''
+- table: ChatRoom
+  schema: dbo
+  object_type: table
+  keywords: []
+  column_names:
+  - ChatRoomId
+  - RoomName
+  - IsActive
+  - CreatedBy
+  - CreatedOn
+  - UpdatedBy
+  - UpdatedOn
+  - IP
+  primary_key:
+  - ChatRoomId
+  has_foreign_keys: true
+  short_description: ''
+- table: ChatRoomMember
+  schema: dbo
+  object_type: table
+  keywords: []
+  column_names:
+  - ChatRoomMemberId
+  - ChatRoomId
+  - UserMasterId
+  - LastVisited
+  primary_key:
+  - ChatRoomMemberId
+  has_foreign_keys: true
+  short_description: ''
+- table: Deal
+  schema: dbo
+  object_type: table
+  keywords: []
+  column_names:
+  - DealId
+  - TypeOfCoverage
+  - FirstName
+  - LastName
+  - NoOfApplicants
+  - FFM
+  - Career
+  - TypeOfWork
+  - MonthlyIncome
+  - DocNeeded
+  - SocialProvided
+  - CustomerLanguage
+  - CloseDate
+  - Notes
+  - AgentId
+  - IsActive
+  - CreatedBy
+  - CreatedOn
+  - UpdatedBy
+  - UpdatedOn
+  - IP
+  primary_key:
+  - DealId
+  has_foreign_keys: true
+  short_description: ''
+- table: DealDocument
+  schema: dbo
+  object_type: table
+  keywords: []
+  column_names:
+  - DealDocId
+  - DealId
+  - DocName
+  - UploadedDate
+  primary_key:
+  - DealDocId
+  has_foreign_keys: true
+  short_description: ''
+- table: LeadMaster
+  schema: dbo
+  object_type: table
+  keywords: []
+  column_names:
+  - LeadId
+  - LeadSource
+  - CustomerName
+  - ContactNumber
+  - Email
+  - Address
+  - InterestedCoverage
+  - LeadStatus
+  - AssignedAgentId
+  - Notes
+  - CreatedBy
+  - CreatedOn
+  - UpdatedBy
+  - UpdatedOn
+  - IsActive
+  primary_key:
+  - LeadId
+  has_foreign_keys: false
+  short_description: ''
+- table: LoginFailure
+  schema: dbo
+  object_type: table
+  keywords: []
+  column_names:
+  - LoginFailureId
+  - Username
+  - CreatedOn
+  - IP
+  primary_key:
+  - LoginFailureId
+  has_foreign_keys: false
+  short_description: ''
+- table: LoginHistory
+  schema: dbo
+  object_type: table
+  keywords: []
+  column_names:
+  - LoginHistoryId
+  - UserMasterId
+  - LoggedInTime
+  - IP
+  primary_key:
+  - LoginHistoryId
+  has_foreign_keys: true
+  short_description: ''
+- table: Menu
+  schema: dbo
+  object_type: table
+  keywords: []
+  column_names:
+  - MenuId
+  - MenuName
+  - MenuNameId
+  - PageURL
+  - Icon
+  - ParentId
+  - DisplayOrder
+  - IsHaveChild
+  - IsActive
+  - IsShowtoAdmin
+  primary_key:
+  - MenuId
+  has_foreign_keys: false
+  short_description: ''
+- table: MenuRole
+  schema: dbo
+  object_type: table
+  keywords: []
+  column_names:
+  - MenuRoleId
+  - MenuId
+  - RoleId
+  primary_key:
+  - MenuRoleId
+  has_foreign_keys: true
+  short_description: ''
+relationship_summary:
+  many_to_many_patterns:
+  - junction_table: ChatRoomMember
+    junction_schema: dbo
+    left_table: UserMaster
+    left_schema: dbo
+    right_table: ChatRoom
+    right_schema: dbo
+  - junction_table: MenuRole
+    junction_schema: dbo
+    left_table: Role
+    left_schema: dbo
+    right_table: Menu
+    right_schema: dbo

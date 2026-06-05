@@ -1,0 +1,133 @@
+table_name: DealDocument
+schema: dbo
+object_type: table
+description: This table stores documents related to specific deals, such as contracts,
+  proposals, or other relevant files. Each record includes the document's name and
+  the date it was uploaded, linking it directly to a deal identifier. This provides
+  a centralized repository for all documentation associated with a given deal.
+created_date: null
+modified_date: null
+columns:
+- name: DealDocId
+  type: bigint
+  sql_type: bigint
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: A unique identifier for each document associated with a deal.
+  keywords:
+  - document id
+  - deal document number
+  - unique identifier
+- name: DealId
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The identifier that links the document to a specific deal.
+  keywords:
+  - deal id
+  - deal number
+  - associated deal
+- name: DocName
+  type: varchar(500) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(500) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 500
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The name or title of the uploaded document.
+  keywords:
+  - document name
+  - file name
+  - attachment title
+- name: UploadedDate
+  type: date
+  sql_type: date
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The date on which the document was uploaded.
+  keywords:
+  - upload date
+  - date added
+  - document date
+primary_key:
+  constraint_name: PK_DealDocument
+  columns:
+  - DealDocId
+  column_details:
+  - name: DealDocId
+    ordinal: 1
+    is_descending: false
+foreign_keys:
+- constraint_name: FK_DealDocument_Deal
+  columns:
+  - DealId
+  referenced_schema: dbo
+  referenced_table: Deal
+  referenced_columns:
+  - DealId
+  on_delete: null
+  on_update: null
+  is_disabled: false
+unique_constraints: []
+indexes: []
+check_constraints: []
+keywords:
+- associated deal
+- attachment title
+- date added
+- deal document number
+- deal id
+- deal number
+- document date
+- document id
+- document name
+- file name
+relationships:
+  outgoing:
+  - to_schema: dbo
+    to_table: Deal
+    via_columns:
+    - DealId
+    relationship_type: many_to_one
+  incoming: []
+  many_to_many: []
+statistics:
+  total_columns: 4
+  nullable_columns: 0
+  computed_columns: 0
+  indexed_columns: 0

@@ -1,0 +1,244 @@
+table_name: ChatRoom
+schema: dbo
+object_type: table
+description: This table stores essential information about the chat rooms available
+  in the system. Each record represents a unique chat room, detailing its name, its
+  current status, and who created or last updated it. It serves as the central directory
+  for managing and accessing different chat spaces.
+created_date: null
+modified_date: null
+columns:
+- name: ChatRoomId
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: A unique number that identifies each individual chat room.
+  keywords:
+  - chat room ID
+  - identifier
+  - room number
+- name: RoomName
+  type: nvarchar(250) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: nvarchar(250) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 250
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The official name or title of the chat room that users see.
+  keywords:
+  - chat room name
+  - topic
+  - channel name
+- name: IsActive
+  type: bit
+  sql_type: bit
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Indicates whether the chat room is currently active and available for
+    users to join.
+  keywords:
+  - status
+  - active
+  - enabled
+- name: CreatedBy
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The unique identifier for the user who originally created the chat
+    room.
+  keywords:
+  - creator
+  - author
+  - owner
+- name: CreatedOn
+  type: datetime
+  sql_type: datetime
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The exact date and time when the chat room was first created.
+  keywords:
+  - creation date
+  - timestamp
+  - start date
+- name: UpdatedBy
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The unique identifier for the user who made the most recent change
+    to the chat room's settings.
+  keywords:
+  - editor
+  - modifier
+  - last updated by
+- name: UpdatedOn
+  type: datetime
+  sql_type: datetime
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The exact date and time when the chat room's settings were last modified.
+  keywords:
+  - modification date
+  - last updated
+  - revision date
+- name: IP
+  type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: varchar(50) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 50
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The IP address recorded when the chat room was created or last updated.
+  keywords:
+  - IP address
+  - location
+  - network address
+primary_key:
+  constraint_name: PK_ChatRoom
+  columns:
+  - ChatRoomId
+  column_details:
+  - name: ChatRoomId
+    ordinal: 1
+    is_descending: false
+foreign_keys:
+- constraint_name: FK_ChatRoom_UserMaster
+  columns:
+  - CreatedBy
+  referenced_schema: dbo
+  referenced_table: UserMaster
+  referenced_columns:
+  - UserMasterId
+  on_delete: null
+  on_update: null
+  is_disabled: false
+- constraint_name: FK_ChatRoom_UserMaster1
+  columns:
+  - UpdatedBy
+  referenced_schema: dbo
+  referenced_table: UserMaster
+  referenced_columns:
+  - UserMasterId
+  on_delete: null
+  on_update: null
+  is_disabled: false
+unique_constraints: []
+indexes: []
+check_constraints: []
+keywords:
+- IP address
+- active
+- author
+- channel name
+- chat room ID
+- chat room name
+- creation date
+- creator
+- editor
+- enabled
+relationships:
+  outgoing:
+  - to_schema: dbo
+    to_table: UserMaster
+    via_columns:
+    - CreatedBy
+    relationship_type: many_to_one
+  - to_schema: dbo
+    to_table: UserMaster
+    via_columns:
+    - UpdatedBy
+    relationship_type: many_to_one
+  incoming:
+  - from_schema: dbo
+    from_table: ChatMessage
+    via_columns:
+    - ChatRoomId
+    relationship_type: one_to_many
+  - from_schema: dbo
+    from_table: ChatRoomMember
+    via_columns:
+    - ChatRoomId
+    relationship_type: one_to_many
+  many_to_many:
+  - via_table: ChatRoomMember
+    via_schema: dbo
+    to_table: UserMaster
+    to_schema: dbo
+    via_columns:
+    - ChatRoomId
+    relationship_type: many_to_many
+statistics:
+  total_columns: 8
+  nullable_columns: 2
+  computed_columns: 0
+  indexed_columns: 0

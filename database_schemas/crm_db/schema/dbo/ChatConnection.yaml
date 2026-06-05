@@ -1,0 +1,134 @@
+table_name: ChatConnection
+schema: dbo
+object_type: table
+description: This table tracks active user connections within the chat system. It
+  maps internal user identifiers to specific, temporary connection IDs. This information
+  is crucial for managing real-time messaging and ensuring users receive messages
+  promptly.
+created_date: null
+modified_date: null
+columns:
+- name: ChatConnectionId
+  type: bigint
+  sql_type: bigint
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: A unique identifier for each chat connection event.
+  keywords:
+  - connection ID
+  - chat session
+  - record key
+- name: UserMasterId
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The unique identifier for the user who initiated the chat session.
+  keywords:
+  - user ID
+  - personnel key
+  - account number
+- name: ConnectionId
+  type: nvarchar(100) collate "sql_latin1_general_cp1_ci_as"
+  sql_type: nvarchar(100) collate "sql_latin1_general_cp1_ci_as"
+  max_length: 100
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: SQL_Latin1_General_CP1_CI_AS
+  description: The technical identifier for the specific connection, provided by the
+    messaging service.
+  keywords:
+  - session ID
+  - service key
+  - connection string
+- name: CreatedOn
+  type: datetime
+  sql_type: datetime
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: The timestamp marking when the chat connection was successfully established.
+  keywords:
+  - connection date
+  - session start
+  - timestamp
+primary_key:
+  constraint_name: PK_ChatConnection
+  columns:
+  - ChatConnectionId
+  column_details:
+  - name: ChatConnectionId
+    ordinal: 1
+    is_descending: false
+foreign_keys:
+- constraint_name: FK_ChatConnection_UserMaster
+  columns:
+  - UserMasterId
+  referenced_schema: dbo
+  referenced_table: UserMaster
+  referenced_columns:
+  - UserMasterId
+  on_delete: null
+  on_update: null
+  is_disabled: false
+unique_constraints: []
+indexes: []
+check_constraints: []
+keywords:
+- account number
+- chat session
+- connection ID
+- connection date
+- connection string
+- personnel key
+- record key
+- service key
+- session ID
+- session start
+relationships:
+  outgoing:
+  - to_schema: dbo
+    to_table: UserMaster
+    via_columns:
+    - UserMasterId
+    relationship_type: many_to_one
+  incoming: []
+  many_to_many: []
+statistics:
+  total_columns: 4
+  nullable_columns: 0
+  computed_columns: 0
+  indexed_columns: 0
