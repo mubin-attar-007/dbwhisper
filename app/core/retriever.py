@@ -122,50 +122,57 @@ def vector_search(
 
 
 def _ensure_pgvector_index(connection_string: str) -> None:
-    """Ensure the PGVector extension and an index exist for embeddings.
+    """Ensure the `vector` extension exists and (best-effort) build an ivfflat index.
 
-    This function tries to create the `vector` extension and an ivfflat index on
-    `langchain_pg_embedding.embedding` if it doesn't exist. It's safe to call multiple times.
+    The extension is required; the index is an optional optimization. ivfflat only supports
+    vector columns of <=2000 dimensions, so high-dimensional models (e.g. gemini-embedding-001
+    at 3072 dims) skip the index and rely on sequential scan — which is fine for modest
+    collections. Index failures are non-fatal and never raised. Safe to call repeatedly.
     """
     engine = database_manager.get_engine(connection_string)
     with engine.connect() as conn:
+        # 1) Extension (required for vector storage).
         try:
-            # Ensure the vector extension is present
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
-
-            # Detect whether the 'embedding' column is a PGVector (udt_name == 'vector') before
-            # attempting an ivfflat index. If the column is JSONB / jsonb array, creating a
-            # native vector index will fail; skip the index in that case.
-            try:
-                col_q = text(
-                    "SELECT udt_name FROM information_schema.columns "
-                    "WHERE table_name = 'langchain_pg_embedding' AND column_name = 'embedding' LIMIT 1"
-                )
-                row = conn.execute(col_q).fetchone()
-                udt_name = row[0] if row and len(row) > 0 else None
-            except Exception:
-                # Could not detect column type: fall back to attempting to create the index and
-                # let it fail gracefully; do not raise on metadata differences.
-                udt_name = None
-
-            if udt_name != "vector":
-                logger.info(
-                    "Skipping ivfflat index creation because langchain_pg_embedding.embedding "
-                    "is not a vector column (udt=%s)",
-                    udt_name,
-                )
-            else:
-                # ivfflat index on the canonical langchain embedding table (L2 distance).
-                index_ddl = (
-                    "CREATE INDEX IF NOT EXISTS langchain_pg_embedding_ivfflat_idx "
-                    "ON langchain_pg_embedding USING ivfflat (embedding vector_l2_ops) WITH (lists = 100)"
-                )
-                conn.execute(text(index_ddl))
             with contextlib.suppress(Exception):
-                # Some engines/older SQLAlchemy may not implement commit on this proxy; ignore.
                 conn.commit()
         except Exception as exc:
             logger.debug(
-                "PGVector index creation issue: %s", sanitize_for_log(str(exc), max_len=300)
+                "Could not ensure 'vector' extension: %s", sanitize_for_log(str(exc), max_len=300)
             )
-            raise
+            return
+
+        # 2) ivfflat index (best-effort optimization; never fatal).
+        try:
+            row = conn.execute(
+                text(
+                    "SELECT udt_name FROM information_schema.columns "
+                    "WHERE table_name = 'langchain_pg_embedding' AND column_name = 'embedding' LIMIT 1"
+                )
+            ).fetchone()
+            if not row or row[0] != "vector":
+                return  # table not created yet, or not a native vector column
+
+            dims = conn.execute(
+                text("SELECT vector_dims(embedding) FROM langchain_pg_embedding LIMIT 1")
+            ).scalar()
+            if dims is not None and dims > 2000:
+                logger.info(
+                    "Skipping ivfflat index: embedding dim=%s exceeds pgvector's 2000-dim "
+                    "index limit (sequential scan will be used).",
+                    dims,
+                )
+                return
+
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS langchain_pg_embedding_ivfflat_idx "
+                    "ON langchain_pg_embedding USING ivfflat (embedding vector_l2_ops) WITH (lists = 100)"
+                )
+            )
+            with contextlib.suppress(Exception):
+                conn.commit()
+        except Exception as exc:
+            logger.debug(
+                "Skipped ivfflat index (non-fatal): %s", sanitize_for_log(str(exc), max_len=300)
+            )

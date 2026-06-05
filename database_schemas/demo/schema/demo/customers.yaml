@@ -1,0 +1,109 @@
+table_name: customers
+schema: demo
+object_type: table
+description: ''
+created_date: null
+modified_date: null
+columns:
+- name: id
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: ''
+- name: name
+  type: text
+  sql_type: text
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: ''
+- name: email
+  type: text
+  sql_type: text
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: ''
+- name: city
+  type: text
+  sql_type: text
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: ''
+- name: signup_date
+  type: date
+  sql_type: date
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: true
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: ''
+primary_key:
+  constraint_name: customers_pkey
+  columns:
+  - id
+  column_details:
+  - name: id
+    ordinal: 1
+    is_descending: false
+foreign_keys: []
+unique_constraints: []
+indexes: []
+check_constraints: []
+keywords: []
+relationships:
+  outgoing: []
+  incoming:
+  - from_schema: demo
+    from_table: orders
+    via_columns:
+    - customer_id
+    relationship_type: one_to_many
+  many_to_many: []
+statistics:
+  total_columns: 5
+  nullable_columns: 3
+  computed_columns: 0
+  indexed_columns: 0

@@ -1,0 +1,134 @@
+table_name: order_items
+schema: demo
+object_type: table
+description: ''
+created_date: null
+modified_date: null
+columns:
+- name: id
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: ''
+- name: order_id
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: ''
+- name: product_id
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: ''
+- name: quantity
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: ''
+- name: unit_price
+  type: numeric(10, 2)
+  sql_type: numeric(10, 2)(10,2)
+  max_length: null
+  precision: 10
+  scale: 2
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: ''
+primary_key:
+  constraint_name: order_items_pkey
+  columns:
+  - id
+  column_details:
+  - name: id
+    ordinal: 1
+    is_descending: false
+foreign_keys:
+- constraint_name: order_items_product_id_fkey
+  columns:
+  - product_id
+  referenced_schema: demo
+  referenced_table: products
+  referenced_columns:
+  - id
+  on_delete: null
+  on_update: null
+  is_disabled: false
+- constraint_name: order_items_order_id_fkey
+  columns:
+  - order_id
+  referenced_schema: demo
+  referenced_table: orders
+  referenced_columns:
+  - id
+  on_delete: null
+  on_update: null
+  is_disabled: false
+unique_constraints: []
+indexes: []
+check_constraints: []
+keywords: []
+relationships:
+  outgoing:
+  - to_schema: demo
+    to_table: products
+    via_columns:
+    - product_id
+    relationship_type: many_to_one
+  - to_schema: demo
+    to_table: orders
+    via_columns:
+    - order_id
+    relationship_type: many_to_one
+  incoming: []
+  many_to_many: []
+statistics:
+  total_columns: 5
+  nullable_columns: 0
+  computed_columns: 0
+  indexed_columns: 0
