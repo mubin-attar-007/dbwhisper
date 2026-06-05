@@ -365,6 +365,11 @@ class SQLServerMetadataExtractor:
         "db_datawriter",
         "db_denydatareader",
         "db_denydatawriter",
+        # Cross-dialect system schemas (Postgres / MySQL / SQLite)
+        "pg_catalog",
+        "pg_toast",
+        "performance_schema",
+        "temp",
     )
 
     def __init__(
@@ -389,9 +394,8 @@ class SQLServerMetadataExtractor:
         self.inspector: Inspector = inspect(self.engine)
 
     def extract(self) -> RawMetadata:
-        """Extract all metadata using SQLAlchemy reflection."""
-        with self.engine.connect() as conn:
-            database_name = conn.scalar(text("SELECT DB_NAME()")) or "unknown"
+        """Extract all metadata using SQLAlchemy reflection (dialect-agnostic)."""
+        database_name = self._resolve_database_name()
 
         logger.info("Extracting metadata from database '%s' using Inspector", database_name)
 
@@ -434,6 +438,30 @@ class SQLServerMetadataExtractor:
     # Individual extractors using Inspector + reflected MetaData
     # ------------------------------------------------------------------
 
+    def _resolve_database_name(self) -> str:
+        """Resolve the database name across dialects (no MSSQL-only assumptions)."""
+        dialect = self.engine.dialect.name
+        query = {
+            "mssql": "SELECT DB_NAME()",
+            "postgresql": "SELECT current_database()",
+            "mysql": "SELECT DATABASE()",
+            "mariadb": "SELECT DATABASE()",
+        }.get(dialect)
+        if query:
+            try:
+                with self.engine.connect() as conn:
+                    value = conn.scalar(text(query))
+                if value:
+                    return str(value)
+            except Exception as exc:
+                logger.debug("Database-name query failed for dialect=%s: %s", dialect, exc)
+        url_db = self.engine.url.database
+        if url_db:
+            from pathlib import Path
+
+            return Path(url_db).name or url_db
+        return "unknown"
+
     def _get_schemas(self, target_schemas: list[str]) -> list[dict[str, Any]]:
         return [{"schema_name": s} for s in sorted(target_schemas)]
 
@@ -442,8 +470,12 @@ class SQLServerMetadataExtractor:
         for table in metadata.tables.values():
             if table.schema not in schemas:
                 continue
-            comment = self.inspector.get_table_comment(table.name, schema=table.schema)
-            description = comment.get("text") if comment else None
+            try:
+                comment = self.inspector.get_table_comment(table.name, schema=table.schema)
+                description = comment.get("text") if comment else None
+            except Exception:
+                # Some dialects (e.g. SQLite) don't support table comments.
+                description = None
             tables.append(
                 {
                     "schema_name": table.schema,
@@ -548,7 +580,7 @@ class SQLServerMetadataExtractor:
             if table.schema not in schemas:
                 continue
             for idx in table.indexes:
-                if idx.unique and idx.name.startswith("PK_"):
+                if idx.unique and (idx.name or "").startswith("PK_"):
                     continue  # Skip PKs
                 for i, col in enumerate(idx.columns, start=1):
                     indexes.append(
@@ -578,7 +610,9 @@ class SQLServerMetadataExtractor:
             if table.schema not in schemas:
                 continue
             for uc in table.constraints:
-                if uc.__class__.__name__ == "UniqueConstraint" and not uc.name.startswith("PK_"):
+                if uc.__class__.__name__ == "UniqueConstraint" and not (uc.name or "").startswith(
+                    "PK_"
+                ):
                     for i, col in enumerate(uc.columns, start=1):
                         ucs.append(
                             {
