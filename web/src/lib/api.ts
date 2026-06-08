@@ -148,6 +148,7 @@ export async function runQuery(
       Accept: "application/json",
     },
     body: JSON.stringify(req),
+    credentials: "include", // carry the session cookie so owned databases are reachable
     cache: "no-store",
     signal,
   });
