@@ -23,7 +23,7 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -60,7 +60,9 @@ from app.schema_pipeline.embedding_pipeline import (
     SchemaEmbeddingPipeline,
     SchemaEmbeddingSettings,
 )
+from app.security.auth import require_api_key, require_api_key_if_enabled
 from app.security.db_readonly_checker import is_read_only_connection
+from app.security.ratelimit import RateLimitMiddleware
 from app.user_db_config_loader import PROJECT_ROOT, get_user_database_settings
 from app.utils.logger import sanitize_for_log as _sanitize
 from app.utils.logger import setup_logging
@@ -106,6 +108,10 @@ async def chat_ui():
     # if static not present, redirect to OpenAPI docs as fallback
     return RedirectResponse(url="/docs")
 
+
+# Per-IP rate limiting. Added before CORS so CORS remains the outermost middleware and
+# even 429 responses carry CORS headers (browsers can read them).
+app.add_middleware(RateLimitMiddleware)
 
 # Configure CORS from environment. Browsers reject "*" together with credentials, so
 # only enable credentials when an explicit origin allowlist is configured.
@@ -194,7 +200,11 @@ async def health_check():
     return HealthResponse()
 
 
-@app.post("/query", response_model=QueryResponse)
+@app.post(
+    "/query",
+    response_model=QueryResponse,
+    dependencies=[Depends(require_api_key_if_enabled)],
+)
 async def execute_query(request: QueryRequest) -> QueryResponse:
     """Execute a natural language SQL query.
 
@@ -602,7 +612,11 @@ async def execute_query(request: QueryRequest) -> QueryResponse:
         ) from e
 
 
-@app.post("/schemas/embeddings", response_model=SchemaEmbeddingResponse)
+@app.post(
+    "/schemas/embeddings",
+    response_model=SchemaEmbeddingResponse,
+    dependencies=[Depends(require_api_key)],
+)
 async def generate_schema_embeddings(request: SchemaEmbeddingRequest) -> SchemaEmbeddingResponse:
     """Convert every schema YAML into embeddings stored in Postgres."""
 
@@ -651,7 +665,11 @@ async def generate_schema_embeddings(request: SchemaEmbeddingRequest) -> SchemaE
         ) from error
 
 
-@app.post("/schemas/enroll", response_model=SchemaPipelineResponse)
+@app.post(
+    "/schemas/enroll",
+    response_model=SchemaPipelineResponse,
+    dependencies=[Depends(require_api_key)],
+)
 async def enroll_database(request: SchemaPipelineRequest) -> SchemaPipelineResponse:
     """Enroll and extract a database schema, run documentation and embeddings."""
     logger.info("Running schema pipeline for db_flag=%s", request.db_flag)

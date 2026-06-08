@@ -1,5 +1,6 @@
 # Structured logging
 import contextlib
+import json
 import logging
 import os
 import time
@@ -19,13 +20,51 @@ def get_daily_log_path() -> str:
     return os.path.join(LOG_DIR, f"app_{today}.log")
 
 
+class _JsonFormatter(logging.Formatter):
+    """Compact JSON log lines for production (parseable by log aggregators)."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        payload = {
+            "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
+            "level": record.levelname,
+            "logger": record.name,
+            "module": record.module,
+            "line": record.lineno,
+            "message": record.getMessage(),
+        }
+        if record.exc_info:
+            payload["exc_info"] = self.formatException(record.exc_info)
+        return json.dumps(payload, default=str)
+
+
+# Read straight from env (this module is imported by app.core.config, so importing settings
+# here would create a circular import).
+def _resolve_level() -> int:
+    return getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO)
+
+
+def _use_json() -> bool:
+    raw = os.getenv("LOG_JSON")
+    if raw is not None:
+        return raw.strip().lower() not in ("0", "false", "no", "")
+    return os.getenv("APP_ENV", "development").strip().lower() in ("production", "prod")
+
+
+def _console_formatter() -> logging.Formatter:
+    if _use_json():
+        return _JsonFormatter()
+    return logging.Formatter(
+        "%(asctime)s - %(module)s:%(lineno)d - %(levelname)s - %(message)s", "%Y-%m-%d %H:%M:%S"
+    )
+
+
 def setup_logging(name: str = __name__) -> logging.Logger:
     """Setup structured logging with daily rotation and noise suppression."""
     log_path = get_daily_log_path()
 
     # Create a project-specific logger
     logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(_resolve_level())
     logger.propagate = False  # prevent bubbling to root logger
 
     # Clear old handlers
@@ -48,11 +87,7 @@ def setup_logging(name: str = __name__) -> logging.Logger:
 
     # Console handler
     console_handler = logging.StreamHandler()
-    console_handler.setFormatter(
-        logging.Formatter(
-            "%(asctime)s - %(module)s:%(lineno)d - %(levelname)s - %(message)s", "%Y-%m-%d %H:%M:%S"
-        )
-    )
+    console_handler.setFormatter(_console_formatter())
     logger.addHandler(console_handler)
 
     # Add a sanitization filter to ensure we never log raw secrets accidentally.

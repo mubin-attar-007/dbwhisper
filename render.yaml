@@ -13,6 +13,13 @@ services:
         value: production
       - key: EMBEDDING_PROVIDER
         value: google
+      - key: LOG_LEVEL
+        value: INFO
+      # In production the /schemas/* endpoints require an API key (fail-closed). Set a
+      # strong token here to use them; /query stays open (rate-limited) unless you also
+      # set GATE_QUERY_ENDPOINT=true.
+      - key: API_AUTH_TOKENS
+        sync: false
       # Secrets — set these in the Render dashboard (never committed):
       - key: POSTGRES_CONNECTION_STRING
         sync: false
@@ -21,4 +28,6 @@ services:
       - key: GROQ_API_KEY
         sync: false
       - key: CORS_ALLOW_ORIGINS
+        sync: false
+      - key: SENTRY_DSN
         sync: false

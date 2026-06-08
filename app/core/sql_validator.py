@@ -79,6 +79,14 @@ def _extract_referenced_tables(trimmed: str):
     return set(candidates)
 
 
+_CTE_NAME_PATTERN = re.compile(r"(?:\bwith\b|,)\s+([a-zA-Z_]\w*)\s+as\s*\(", re.IGNORECASE)
+
+
+def _extract_cte_names(trimmed: str) -> set[str]:
+    """Names introduced by WITH ... AS (...) CTEs, which are valid FROM/JOIN targets."""
+    return {m.group(1).lower() for m in _CTE_NAME_PATTERN.finditer(trimmed)}
+
+
 def _load_schema_index_tables(db_flag: str):
     try:
         from pathlib import Path
@@ -87,7 +95,9 @@ def _load_schema_index_tables(db_flag: str):
 
         from app.user_db_config_loader import PROJECT_ROOT
 
-        index_path = Path(PROJECT_ROOT) / "config" / "schemas" / db_flag / "schema_index.yaml"
+        index_path = (
+            Path(PROJECT_ROOT) / "database_schemas" / db_flag / "schema" / "schema_index.yaml"
+        )
         if not index_path.exists():
             return None
         with index_path.open("r", encoding="utf-8") as fh:
@@ -147,13 +157,15 @@ def validate_sql(sql: str, db_flag: str | None = None) -> dict[str, object]:
     if "information_schema" in lower_trim or "sys." in lower_trim or "pg_catalog." in lower_trim:
         return {"valid": False, "reason": "Access to system schemas is not permitted"}
 
-    # Optional: validate referenced tables are in the enrolled schema index
+    # Validate referenced tables are in the enrolled schema index (fail-open if the index
+    # file is absent). CTE names defined in the same query are allowed FROM/JOIN targets.
     if db_flag:
         allowed = _load_schema_index_tables(db_flag)
         if allowed is not None:
             refs = _extract_referenced_tables(trimmed)
-            if refs and not refs.issubset(allowed):
-                missing = refs - allowed
+            cte_names = _extract_cte_names(trimmed)
+            missing = refs - allowed - cte_names
+            if missing:
                 return {
                     "valid": False,
                     "reason": f"Unknown or unauthorized tables referenced: {', '.join(sorted(missing))}",
