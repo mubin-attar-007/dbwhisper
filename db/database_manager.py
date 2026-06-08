@@ -70,11 +70,28 @@ def get_engine(connection_string: str) -> Engine:
     return engine
 
 
+def _ensure_owner_id_column(engine: Engine) -> None:
+    """Idempotently add ``Database_config.owner_id`` on pre-existing Postgres deployments.
+
+    ``create_all`` never ALTERs an existing table, so a DB created before multi-tenancy is
+    missing this column. Fresh DBs (and sqlite tests) already have it from the model.
+    """
+    if engine.dialect.name != "postgresql":
+        return
+    from sqlalchemy import text
+
+    with engine.begin() as conn:
+        conn.execute(
+            text('ALTER TABLE "Database_config" ADD COLUMN IF NOT EXISTS owner_id INTEGER')
+        )
+
+
 def create_metadata_tables(connection_string: str) -> None:
     """Create the project metadata tables (idempotent)."""
     engine = get_engine(connection_string)
     try:
         Base.metadata.create_all(engine)
+        _ensure_owner_id_column(engine)
     except Exception as exc:
         from app.utils.logger import sanitize_for_log
 
