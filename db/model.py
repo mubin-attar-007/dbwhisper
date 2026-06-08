@@ -55,6 +55,10 @@ class DatabaseConfig(Base):
         DateTime,
         server_default=func.now(),  # applied ONLY when user doesn't pass a value
     )
+    # Multi-tenancy: the owning user. NULL = public (e.g. the shared demo), readable by anyone.
+    owner_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     def __repr__(self):
         return f"<DatabaseConfig(db_flag={self.db_flag}, description={self.description})>"
