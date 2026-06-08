@@ -21,6 +21,14 @@ pinned: false
 > with `uv sync --extra local-embeddings` for fully local/offline embeddings (re-embed when switching).
 > **Deploy:** Hugging Face Spaces (Docker, port 7860) + Neon (Postgres/pgvector); `render.yaml`
 > provided as an alternative. See [SECURITY.md](SECURITY.md) for the read-only safety model.
+>
+> **Hardening:** API-key gate + per-IP rate limit on the powerful endpoints; DSN-gated **Sentry**
+> (`SENTRY_DSN`); a `/ready` probe (checks Postgres + pgvector); CI runs ruff + pytest (coverage gate)
+> + informational `pip-audit` + a frontend build + gitleaks.
+> **Optional accounts + multi-tenancy (flag-gated, default off):** set `USER_AUTH_ENABLED=true` (backend)
+> and `NEXT_PUBLIC_AUTH_ENABLED=true` (web) to require login — Argon2id sessions, `/auth/{register,login,
+> logout,me}`, HttpOnly `__Host-` cookie — and enrolled databases become **owner-scoped** (the `demo`
+> stays public). Endpoints: `/query`, `/schemas/enroll`, `/schemas/embeddings`, `/health`, `/ready`, `/auth/*`.
 
 <!-- ───────────────────────── Original documentation below ───────────────────────── -->
 
