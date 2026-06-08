@@ -39,6 +39,7 @@ from app.agent.chain import (
     parse_structured_response,
     summarize_query_results,
 )
+from app.api.auth import router as auth_router
 from app.core import query_executor, result_formatter, sql_validator
 from app.core.config import get_settings
 from app.core.observability import init_sentry
@@ -130,6 +131,10 @@ if _settings.is_production and _cors_origins == ["*"]:
     logger.warning(
         "CORS is wide-open ('*') in production. Set CORS_ALLOW_ORIGINS to your frontend origin(s)."
     )
+
+# Authentication routes (/auth/register, /login, /logout, /me): public + rate-limited,
+# session-cookie based. Adding them changes nothing for existing endpoints.
+app.include_router(auth_router)
 
 
 # Models moved to `app.models` for reusability and readability
