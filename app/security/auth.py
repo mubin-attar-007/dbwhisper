@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import hmac
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import APIKeyHeader
 
 from app.core.config import Settings, get_settings
@@ -69,3 +69,23 @@ async def require_api_key_if_enabled(
     if not settings.gate_query_endpoint:
         return
     await require_api_key(api_key=api_key, settings=settings)
+
+
+async def resolve_enroll_owner(
+    request: Request,
+    api_key: str | None = Depends(_api_key_scheme),
+    settings: Settings = Depends(get_settings),
+) -> int | None:
+    """Auth for schema enrollment; returns the owner_id to stamp on the enrolled DB.
+
+    * ``user_auth_enabled`` + a valid session -> the user's id (they own the DB).
+    * otherwise require a valid API key (admin) -> ``None`` (the DB is public).
+    """
+    if settings.user_auth_enabled:
+        from app.security.user_auth import get_current_user
+
+        user = get_current_user(request)
+        if user is not None:
+            return user.id
+    await require_api_key(api_key=api_key, settings=settings)
+    return None

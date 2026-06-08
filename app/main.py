@@ -23,7 +23,7 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -62,7 +62,11 @@ from app.schema_pipeline.embedding_pipeline import (
     SchemaEmbeddingPipeline,
     SchemaEmbeddingSettings,
 )
-from app.security.auth import require_api_key, require_api_key_if_enabled
+from app.security.auth import (
+    require_api_key,
+    require_api_key_if_enabled,
+    resolve_enroll_owner,
+)
 from app.security.db_readonly_checker import is_read_only_connection
 from app.security.ratelimit import RateLimitMiddleware
 from app.user_db_config_loader import PROJECT_ROOT, get_user_database_settings
@@ -232,12 +236,33 @@ async def readiness_check() -> JSONResponse:
     return JSONResponse(status_code=200 if ok else 503, content={"ready": ok, "checks": checks})
 
 
+def _enforce_db_access(http_request: Request, db_flag: str) -> None:
+    """Tenancy gate, active only when ``user_auth_enabled``.
+
+    Public db_flags (owner_id NULL, e.g. the demo) are open to anyone; owned ones require the
+    owner's session. No-op when the flag is off, so default behavior is unchanged.
+    """
+    settings = get_settings()
+    if not settings.user_auth_enabled:
+        return
+    from app.security.tenancy import user_can_access_db_flag
+    from app.security.user_auth import get_current_user
+
+    user = get_current_user(http_request)
+    user_id = user.id if user else None
+    if not user_can_access_db_flag(db_flag, user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this database.",
+        )
+
+
 @app.post(
     "/query",
     response_model=QueryResponse,
     dependencies=[Depends(require_api_key_if_enabled)],
 )
-async def execute_query(request: QueryRequest) -> QueryResponse:
+async def execute_query(request: QueryRequest, http_request: Request) -> QueryResponse:
     """Execute a natural language SQL query.
 
     Args:
@@ -249,6 +274,7 @@ async def execute_query(request: QueryRequest) -> QueryResponse:
     Raises:
         HTTPException: If execution fails or database is unavailable
     """
+    _enforce_db_access(http_request, request.db_flag)
     try:
         try:
             logger.info(
@@ -700,9 +726,11 @@ async def generate_schema_embeddings(request: SchemaEmbeddingRequest) -> SchemaE
 @app.post(
     "/schemas/enroll",
     response_model=SchemaPipelineResponse,
-    dependencies=[Depends(require_api_key)],
 )
-async def enroll_database(request: SchemaPipelineRequest) -> SchemaPipelineResponse:
+async def enroll_database(
+    request: SchemaPipelineRequest,
+    owner_id: int | None = Depends(resolve_enroll_owner),
+) -> SchemaPipelineResponse:
     """Enroll and extract a database schema, run documentation and embeddings."""
     logger.info("Running schema pipeline for db_flag=%s", request.db_flag)
     # POSTGRES_CONNECTION_STRING is now handled internally by the orchestrator
@@ -710,7 +738,7 @@ async def enroll_database(request: SchemaPipelineRequest) -> SchemaPipelineRespo
     try:
         project_connection = get_project_db_connection_string()
         create_metadata_tables(project_connection)
-        db_row = _fetch_or_create_database_config(request, project_connection)
+        db_row = _fetch_or_create_database_config(request, project_connection, owner_id=owner_id)
         # Validate connection read-only status
         try:
             check_ok, message = is_read_only_connection(
@@ -876,7 +904,7 @@ async def enroll_database(request: SchemaPipelineRequest) -> SchemaPipelineRespo
 
 
 def _fetch_or_create_database_config(
-    request: SchemaPipelineRequest, project_connection: str
+    request: SchemaPipelineRequest, project_connection: str, owner_id: int | None = None
 ) -> DatabaseConfig:
     session = get_session(project_connection)
     try:
@@ -891,6 +919,7 @@ def _fetch_or_create_database_config(
             description=request.description,
             intro_template=request.intro_template,
             exclude_column_matches=request.exclude_column_matches,
+            owner_id=owner_id,
             # Set defaults internally for removed fields
             max_rows=10000,
             query_timeout=30,
