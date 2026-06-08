@@ -25,7 +25,7 @@ from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
@@ -41,6 +41,7 @@ from app.agent.chain import (
 )
 from app.core import query_executor, result_formatter, sql_validator
 from app.core.config import get_settings
+from app.core.observability import init_sentry
 from app.models import (
     DocumentationStageSummary,
     EmbeddingStageSummary,
@@ -78,8 +79,9 @@ from db.database_manager import (
 )
 from db.model import DatabaseConfig
 
-# Initialize logging
+# Initialize logging + optional Sentry (no-op unless SENTRY_DSN is set)
 logger = setup_logging(__name__)
+init_sentry()
 
 # Create FastAPI app
 app = FastAPI(
@@ -195,9 +197,34 @@ def _extract_agent_output(agent_result: Any) -> str:
 # Endpoints
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
-    """Health check endpoint."""
+    """Liveness probe — static, always 200 (used by the container/platform healthcheck)."""
     logger.debug("Health check requested")
     return HealthResponse()
+
+
+@app.get("/ready")
+async def readiness_check() -> JSONResponse:
+    """Readiness probe — verifies the project Postgres is reachable and pgvector is installed."""
+    checks = {"postgres": False, "pgvector": False}
+    try:
+        from sqlalchemy import text
+
+        from db import database_manager
+
+        conn = database_manager.get_connection(get_project_db_connection_string())
+        try:
+            conn.execute(text("SELECT 1"))
+            checks["postgres"] = True
+            row = conn.execute(
+                text("SELECT 1 FROM pg_extension WHERE extname = 'vector'")
+            ).fetchone()
+            checks["pgvector"] = row is not None
+        finally:
+            conn.close()
+    except Exception as exc:
+        logger.warning("Readiness check failed: %s", _sanitize(str(exc), max_len=300))
+    ok = all(checks.values())
+    return JSONResponse(status_code=200 if ok else 503, content={"ready": ok, "checks": checks})
 
 
 @app.post(
