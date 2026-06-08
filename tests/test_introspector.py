@@ -15,12 +15,7 @@ def _make_sqlite_db(path) -> None:
     engine = create_engine(f"sqlite:///{path}")
     with engine.begin() as conn:
         conn.execute(
-            text(
-                "CREATE TABLE customers ("
-                " id INTEGER PRIMARY KEY,"
-                " name TEXT NOT NULL,"
-                " email TEXT)"
-            )
+            text("CREATE TABLE customers ( id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT)")
         )
         conn.execute(
             text(

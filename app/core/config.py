@@ -48,6 +48,31 @@ class Settings(BaseSettings):
     deepseek_api_key: str | None = None
     anthropic_api_key: str | None = None
 
+    # ─── Auth (API-key gate for powerful endpoints) ───
+    api_auth_tokens: str | None = None  # comma-separated; presence enables auth
+    auth_required: bool = False  # force-require even outside production
+    gate_query_endpoint: bool = False  # also require an API key on /query
+
+    # ─── Rate limiting (per-IP, in-memory token bucket; Upstash optional later) ───
+    rate_limit_enabled: bool = True
+    rate_limit_burst: int = 30
+    rate_limit_per_sec: float = 0.5
+    query_rate_limit_burst: int = 8
+    query_rate_limit_per_sec: float = 0.1
+
+    # ─── Logging / observability ───
+    log_level: str = "INFO"
+    log_json: bool | None = None  # None → JSON when in production
+    sentry_dsn: str | None = None
+
+    # ─── Query-result cache ───
+    query_cache_enabled: bool = True
+    query_cache_ttl: int = 300
+
+    # ─── Optional Upstash/Redis (future distributed rate-limit/cache) ───
+    upstash_redis_rest_url: str | None = None
+    upstash_redis_rest_token: str | None = None
+
     @property
     def cors_origins_list(self) -> list[str]:
         raw = (self.cors_allow_origins or "").strip()
@@ -58,6 +83,24 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.app_env.strip().lower() in {"production", "prod"}
+
+    @property
+    def auth_tokens_list(self) -> list[str]:
+        raw = (self.api_auth_tokens or "").strip()
+        return [t.strip() for t in raw.split(",") if t.strip()]
+
+    @property
+    def effective_auth_required(self) -> bool:
+        """Require an API key when explicitly forced, or whenever running in production.
+
+        Fail-closed in production: if no API_AUTH_TOKENS are configured, the gated endpoints
+        return 503 until the operator provides one.
+        """
+        return self.auth_required or self.is_production
+
+    @property
+    def effective_log_json(self) -> bool:
+        return self.is_production if self.log_json is None else self.log_json
 
 
 def _normalize_google_key(settings: Settings) -> None:

@@ -258,7 +258,10 @@ def _dialect_directive(db_type: str | None) -> str:
     elif "sqlite" in dt:
         name, hint = "SQLite", "Use `LIMIT n` for row limits (never `TOP`)."
     elif "mssql" in dt or "sqlserver" in dt or "sql server" in dt or "pyodbc" in dt:
-        name, hint = "Microsoft SQL Server (T-SQL)", "Use `SELECT TOP n` for row limits (never `LIMIT`)."
+        name, hint = (
+            "Microsoft SQL Server (T-SQL)",
+            "Use `SELECT TOP n` for row limits (never `LIMIT`).",
+        )
     else:
         return ""
     return f"TARGET SQL DIALECT: {name}. Generate {name}-compatible SQL only. {hint}\n\n"
