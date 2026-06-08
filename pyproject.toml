@@ -70,6 +70,8 @@ dev = [
     "vulture>=2.14",
     "pre-commit>=4.0.0",
     "types-pyyaml>=6.0.0",
+    "pytest-cov>=7.1.0",
+    "pip-audit>=2.10.0",
 ]
 
 [tool.uv]
