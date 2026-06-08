@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     auth_required: bool = False  # force-require even outside production
     gate_query_endpoint: bool = False  # also require an API key on /query
 
+    # ─── User auth (server-side sessions; multi-tenancy) ───
+    user_auth_enabled: bool = False  # gate /query + /schemas/* behind login when True
+    session_ttl_seconds: int = 1_209_600  # 14 days
+    session_cookie_secure: bool | None = None  # None → secure in production
+
     # ─── Rate limiting (per-IP, in-memory token bucket; Upstash optional later) ───
     rate_limit_enabled: bool = True
     rate_limit_burst: int = 30
@@ -101,6 +106,13 @@ class Settings(BaseSettings):
     @property
     def effective_log_json(self) -> bool:
         return self.is_production if self.log_json is None else self.log_json
+
+    @property
+    def cookie_secure(self) -> bool:
+        """Session cookies are Secure in production unless explicitly overridden."""
+        if self.session_cookie_secure is None:
+            return self.is_production
+        return self.session_cookie_secure
 
 
 def _normalize_google_key(settings: Settings) -> None:
