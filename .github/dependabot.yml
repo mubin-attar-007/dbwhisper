@@ -24,8 +24,8 @@ updates:
     groups:
       web:
         patterns: ["*"]
-    ignore:
-      # Tailwind v4 is a breaking change (PostCSS plugin moved to @tailwindcss/postcss);
-      # migrate deliberately rather than letting a grouped bump pull it in and break the build.
-      - dependency-name: "tailwindcss"
-        update-types: ["version-update:semver-major"]
+        # Group only minor + patch. Breaking MAJORS (Tailwind v4, ESLint 9, etc.) come as
+        # separate individual PRs to migrate deliberately, so they never block the grouped bump.
+        update-types:
+          - "minor"
+          - "patch"
