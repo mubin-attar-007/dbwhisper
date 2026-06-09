@@ -1,0 +1,11 @@
+# gitleaks configuration.
+# Use the full default ruleset, but allowlist the log-sanitizer test, which intentionally
+# contains a fake "api_key=..." string to prove sanitize_for_log() redacts it — not a real secret.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fake API keys in the log-sanitizer test fixtures (not real secrets)"
+paths = [
+  '''tests/test_logger_sanitize\.py''',
+]
