@@ -89,7 +89,7 @@ export function ResultsPanel({
                 key={`${i}-${question}`}
                 type="button"
                 onClick={() => onFollowUp(question)}
-                className="inline-flex items-center rounded-full border border-indigo-700/60 bg-indigo-950/30 px-3 py-1 text-left text-xs text-indigo-200 transition hover:border-indigo-500 hover:bg-indigo-900/40 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="inline-flex items-center rounded-full border border-indigo-700/60 bg-indigo-950/30 px-3 py-1 text-left text-xs text-indigo-200 transition hover:border-indigo-500 hover:bg-indigo-900/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
               >
                 {question}
               </button>

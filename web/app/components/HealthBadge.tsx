@@ -43,7 +43,7 @@ export function HealthBadge() {
     { dot: string; text: string; label: string }
   > = {
     checking: {
-      dot: "bg-slate-400 animate-pulse",
+      dot: "bg-slate-400 motion-safe:animate-pulse",
       text: "text-slate-300",
       label: "checking…",
     },

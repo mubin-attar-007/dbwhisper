@@ -14,6 +14,12 @@ const config: Config = {
         },
       },
       fontFamily: {
+        sans: [
+          "var(--font-inter)",
+          "ui-sans-serif",
+          "system-ui",
+          "sans-serif",
+        ],
         mono: [
           "ui-monospace",
           "SFMono-Regular",
@@ -22,6 +28,15 @@ const config: Config = {
           "Consolas",
           "monospace",
         ],
+      },
+      keyframes: {
+        "fade-up": {
+          from: { opacity: "0", transform: "translateY(8px)" },
+          to: { opacity: "1" },
+        },
+      },
+      animation: {
+        "fade-up": "fade-up 0.4s ease-out both",
       },
     },
   },

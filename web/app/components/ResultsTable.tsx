@@ -40,7 +40,7 @@ export function ResultsTable({ data }: { data: QueryResultData }) {
           No rows to display.
         </div>
       ) : (
-        <div className="scrollbar-thin max-h-[28rem] overflow-auto rounded-lg border border-slate-800">
+        <div className="scrollbar-thin max-h-[clamp(16rem,55vh,32rem)] overflow-auto rounded-lg border border-slate-800">
           <table className="min-w-full border-collapse text-left text-sm">
             <thead className="sticky top-0 z-10 bg-slate-800/95 backdrop-blur">
               <tr>

@@ -1,14 +1,37 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ApiError,
   runQuery,
   type QueryRequest,
   type QueryResponse,
 } from "@/src/lib/api";
+import {
+  addHistory,
+  clearHistory,
+  loadHistory,
+  type HistoryEntry,
+} from "@/src/lib/history";
 import { HealthBadge } from "./components/HealthBadge";
+import { HistoryMenu } from "./components/HistoryMenu";
 import { ResultsPanel } from "./components/ResultsPanel";
+import { ResultsSkeleton } from "./components/ResultsSkeleton";
+
+const EXAMPLE_QUERIES = [
+  "How many customers signed up in the last 30 days?",
+  "Top 5 products by total revenue",
+  "Show order counts by status this month",
+  "Which city has the most customers?",
+];
+
+function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="rounded border border-slate-700 bg-slate-800 px-1.5 py-0.5 font-mono text-[11px] text-slate-300">
+      {children}
+    </kbd>
+  );
+}
 
 export default function Home() {
   const [query, setQuery] = useState("");
@@ -16,8 +39,14 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [response, setResponse] = useState<QueryResponse | null>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   const abortRef = useRef<AbortController | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    setHistory(loadHistory());
+  }, []);
 
   const submit = useCallback(async () => {
     const trimmedQuery = query.trim();
@@ -50,6 +79,10 @@ export default function Home() {
       setResponse(res);
       if (res.status === "error") {
         setError(res.error || "The query returned an error.");
+      } else {
+        setHistory(
+          addHistory({ query: trimmedQuery, dbFlag: trimmedFlag, ts: Date.now() }),
+        );
       }
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === "AbortError") {
@@ -94,32 +127,80 @@ export default function Home() {
     if (typeof window !== "undefined") {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
+    textareaRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  const handleExample = useCallback((question: string) => {
+    setQuery(question);
+    setDbFlag((prev) => (prev.trim() ? prev : "demo"));
+    textareaRef.current?.focus();
+  }, []);
+
+  const handleHistorySelect = useCallback((entry: HistoryEntry) => {
+    setQuery(entry.query);
+    setDbFlag(entry.dbFlag);
+    textareaRef.current?.focus();
+  }, []);
+
+  const handleHistoryClear = useCallback(() => {
+    clearHistory();
+    setHistory([]);
   }, []);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-8 px-4 py-8 sm:px-6 lg:py-12">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-            DB<span className="text-indigo-400">Whisper</span>
-          </h1>
-          <span className="hidden text-sm text-slate-500 sm:inline">
-            natural language → SQL
-          </span>
+    <main className="mx-auto flex max-w-4xl flex-col gap-8 px-4 py-8 sm:px-6 lg:py-12">
+      <header className="space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-lg font-bold tracking-tight text-white">
+            DB<span className="text-brand-fg">Whisper</span>
+          </p>
+          <HealthBadge />
         </div>
-        <HealthBadge />
+
+        <div
+          className="motion-safe:animate-fade-up"
+          style={{ animationDelay: "0ms" }}
+        >
+          <h1 className="bg-gradient-to-r from-white via-brand-fg to-brand bg-clip-text text-3xl font-bold tracking-tight text-transparent sm:text-4xl">
+            Ask your database anything.
+          </h1>
+          <p className="mt-2 text-sm text-slate-400">
+            Plain-English questions in, validated SQL and results out — no query
+            language required.{" "}
+            <a
+              href="/api/docs"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded text-indigo-400 transition hover:text-indigo-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            >
+              API docs →
+            </a>
+          </p>
+        </div>
       </header>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label
-            htmlFor="query"
-            className="mb-1.5 block text-sm font-medium text-slate-300"
-          >
-            Your question
-          </label>
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-4 motion-safe:animate-fade-up"
+        style={{ animationDelay: "75ms" }}
+      >
+        <div className="relative">
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <label
+              htmlFor="query"
+              className="block text-sm font-medium text-slate-300"
+            >
+              Your question
+            </label>
+            <HistoryMenu
+              entries={history}
+              onSelect={handleHistorySelect}
+              onClear={handleHistoryClear}
+            />
+          </div>
           <textarea
             id="query"
+            ref={textareaRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -127,20 +208,8 @@ export default function Home() {
             placeholder="e.g. How many active customers signed up last month?"
             className="scrollbar-thin w-full resize-y rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
-          <p className="mt-1 text-xs text-slate-500">
-            Press{" "}
-            <kbd className="rounded border border-slate-700 bg-slate-800 px-1 py-0.5 font-mono text-[10px] text-slate-300">
-              Ctrl
-            </kbd>{" "}
-            /{" "}
-            <kbd className="rounded border border-slate-700 bg-slate-800 px-1 py-0.5 font-mono text-[10px] text-slate-300">
-              ⌘
-            </kbd>{" "}
-            +{" "}
-            <kbd className="rounded border border-slate-700 bg-slate-800 px-1 py-0.5 font-mono text-[10px] text-slate-300">
-              Enter
-            </kbd>{" "}
-            to run.
+          <p className="mt-1 text-xs text-slate-400">
+            <Kbd>Ctrl</Kbd>/<Kbd>⌘</Kbd> + <Kbd>Enter</Kbd> to run
           </p>
         </div>
 
@@ -164,41 +233,85 @@ export default function Home() {
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <div className="flex gap-3">
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading && (
+                <span
+                  className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white motion-safe:animate-spin"
+                  aria-hidden="true"
+                />
+              )}
+              {loading ? "Running…" : "Run query"}
+            </button>
+
             {loading && (
-              <span
-                className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
-                aria-hidden="true"
-              />
+              <button
+                type="button"
+                onClick={() => abortRef.current?.abort()}
+                className="inline-flex items-center justify-center rounded-lg border border-slate-700 px-5 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+              >
+                Cancel
+              </button>
             )}
-            {loading ? "Running…" : "Run query"}
-          </button>
+          </div>
         </div>
       </form>
 
-      {error && (
-        <div
-          role="alert"
-          className="rounded-lg border border-rose-700/60 bg-rose-950/40 p-4 text-sm text-rose-200"
-        >
-          <span className="font-semibold">Error: </span>
-          {error}
-        </div>
-      )}
+      <div
+        aria-busy={loading}
+        className="space-y-6 motion-safe:animate-fade-up"
+        style={{ animationDelay: "150ms" }}
+      >
+        <p role="status" className="sr-only">
+          {loading
+            ? "Running query…"
+            : response?.data
+              ? `Query complete: ${response.data.row_count.toLocaleString()} row${
+                  response.data.row_count === 1 ? "" : "s"
+                }`
+              : ""}
+        </p>
 
-      {response && response.status === "success" && (
-        <ResultsPanel response={response} onFollowUp={handleFollowUp} />
-      )}
+        {error && (
+          <div
+            role="alert"
+            className="rounded-lg border border-rose-700/60 bg-rose-950/40 p-4 text-sm text-rose-200"
+          >
+            <span className="font-semibold">Error: </span>
+            {error}
+          </div>
+        )}
 
-      {!response && !error && !loading && (
-        <div className="rounded-lg border border-dashed border-slate-800 bg-slate-900/30 p-8 text-center text-sm text-slate-500">
-          Ask a question above to generate SQL and see results.
-        </div>
-      )}
+        {loading && <ResultsSkeleton />}
+
+        {!loading && response && response.status === "success" && (
+          <ResultsPanel response={response} onFollowUp={handleFollowUp} />
+        )}
+
+        {!response && !error && !loading && (
+          <div className="space-y-3">
+            <h2 className="text-sm font-medium text-slate-300">
+              Try one of these
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {EXAMPLE_QUERIES.map((question) => (
+                <button
+                  key={question}
+                  type="button"
+                  onClick={() => handleExample(question)}
+                  className="inline-flex items-center rounded-full border border-indigo-700/60 bg-indigo-950/30 px-3 py-1 text-left text-xs text-indigo-200 transition hover:border-indigo-500 hover:bg-indigo-900/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                >
+                  {question}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </main>
   );
 }
