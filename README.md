@@ -10,6 +10,8 @@ pinned: false
 
 # DBWhisper — Natural-Language-to-SQL Agent
 
+**🔗 Live demo → [dbwhisper.vercel.app](https://dbwhisper.vercel.app)**  ·  API docs: [`/docs` on Hugging Face](https://heisenbergblue-dbwhisper.hf.space/docs)
+
 > FastAPI service that converts plain English into **validated, read-only SQL** across
 > MSSQL / MySQL / PostgreSQL, with multi-provider LLM fallback (Gemini, Groq, OpenAI,
 > DeepSeek, Anthropic, OpenRouter) and schema-aware **PGVector** retrieval.
