@@ -16,7 +16,7 @@ import {
 import { HealthBadge } from "./components/HealthBadge";
 import { HistoryMenu } from "./components/HistoryMenu";
 import { ResultsPanel } from "./components/ResultsPanel";
-import { ResultsSkeleton } from "./components/ResultsSkeleton";
+import { StagedProgress } from "./components/StagedProgress";
 
 const EXAMPLE_QUERIES = [
   "How many customers signed up in the last 30 days?",
@@ -31,6 +31,30 @@ function Kbd({ children }: { children: React.ReactNode }) {
       {children}
     </kbd>
   );
+}
+
+/** Turn raw backend/DB errors into a plain-English, recoverable message. */
+function humanizeError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("timeout") || m.includes("timed out"))
+    return "The query took too long. Try narrowing it — add a filter or a smaller date range.";
+  if (
+    m.includes("permission") ||
+    m.includes("denied") ||
+    m.includes("not allowed") ||
+    m.includes("read-only")
+  )
+    return "That action isn't permitted. DBWhisper is read-only, so it only answers SELECT-style questions.";
+  if (
+    m.includes("no such") ||
+    m.includes("not found") ||
+    m.includes("unknown database") ||
+    m.includes("does not exist")
+  )
+    return `${message.trim()} — double-check the database name.`;
+  if (m.includes("connect") || m.includes("network") || m.includes("failed to fetch"))
+    return "Couldn't reach the database. It may be waking up — try again in a moment.";
+  return message.trim();
 }
 
 export default function Home() {
@@ -279,14 +303,23 @@ export default function Home() {
         {error && (
           <div
             role="alert"
-            className="rounded-lg border border-rose-700/60 bg-rose-950/40 p-4 text-sm text-rose-200"
+            className="space-y-3 rounded-lg border border-rose-700/60 bg-rose-950/40 p-4 text-sm text-rose-200"
           >
-            <span className="font-semibold">Error: </span>
-            {error}
+            <p>
+              <span className="font-semibold">Something went wrong. </span>
+              {humanizeError(error)}
+            </p>
+            <button
+              type="button"
+              onClick={() => void submit()}
+              className="inline-flex items-center gap-1.5 rounded-md border border-rose-700/60 bg-rose-900/40 px-3 py-1.5 text-xs font-semibold text-rose-100 transition hover:bg-rose-900/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            >
+              ↻ Try again
+            </button>
           </div>
         )}
 
-        {loading && <ResultsSkeleton />}
+        {loading && <StagedProgress />}
 
         {!loading && response && response.status === "success" && (
           <ResultsPanel response={response} onFollowUp={handleFollowUp} />
