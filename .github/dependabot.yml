@@ -1,31 +1,43 @@
+# Dependency updates — deliberately quiet: monthly, grouped into ONE PR per
+# ecosystem, minor/patch only. Major bumps are ignored (they break builds and
+# should be migrated by hand). Security alerts still surface immediately.
 version: 2
 updates:
   - package-ecosystem: "uv"
     directory: "/"
     schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
+      interval: "monthly"
+    open-pull-requests-limit: 2
     groups:
       python:
         patterns: ["*"]
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-  - package-ecosystem: "docker"
-    directory: "/"
-    schedule:
-      interval: "weekly"
+        update-types: ["minor", "patch"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
   - package-ecosystem: "npm"
     directory: "/web"
     schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
+      interval: "monthly"
+    open-pull-requests-limit: 2
     groups:
       web:
         patterns: ["*"]
-        # Group only minor + patch. Breaking MAJORS (Tailwind v4, ESLint 9, etc.) come as
-        # separate individual PRs to migrate deliberately, so they never block the grouped bump.
-        update-types:
-          - "minor"
-          - "patch"
+        update-types: ["minor", "patch"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 2
+    groups:
+      actions:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
