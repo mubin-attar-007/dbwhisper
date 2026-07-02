@@ -16,10 +16,10 @@ import {
   loadHistory,
   type HistoryEntry,
 } from "@/src/lib/history";
-import { HealthBadge } from "./components/HealthBadge";
-import { HistoryMenu } from "./components/HistoryMenu";
-import { ResultsPanel } from "./components/ResultsPanel";
-import { StagedProgress } from "./components/StagedProgress";
+import { HealthBadge } from "../../components/HealthBadge";
+import { HistoryMenu } from "../../components/HistoryMenu";
+import { ResultsPanel } from "../../components/ResultsPanel";
+import { StagedProgress } from "../../components/StagedProgress";
 
 const EXAMPLE_QUERIES = [
   "How many customers signed up in the last 30 days?",
