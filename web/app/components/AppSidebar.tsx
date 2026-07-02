@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon, type IconName } from "./Icon";
+import { LINKS } from "./links";
 import { useWorkspace } from "./WorkspaceProvider";
 
 function timeAgo(ts: number): string {
@@ -20,6 +21,13 @@ const NAV: { label: string; icon: IconName; href?: string; soon?: boolean }[] = 
   { label: "Saved / Verified", icon: "star", href: "/app/training" },
   { label: "Schema", icon: "table", href: "/app/schema" },
   { label: "Databases", icon: "database", soon: true },
+];
+
+const EXTERNAL: { label: string; icon: IconName; href: string }[] = [
+  { label: "GitHub", icon: "github", href: LINKS.github },
+  { label: "LinkedIn", icon: "linkedin", href: LINKS.linkedin },
+  { label: "Hugging Face", icon: "huggingface", href: LINKS.huggingface },
+  { label: "API docs", icon: "book", href: LINKS.apiDocs },
 ];
 
 export function AppSidebar() {
@@ -111,22 +119,17 @@ export function AppSidebar() {
       </div>
 
       <div className="border-t border-slate-800/80 p-2">
-        <a
-          href="https://github.com/mubin-attar-007/dbwhisper"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-100"
-        >
-          <Icon name="github" className="h-4 w-4" /> GitHub
-        </a>
-        <a
-          href="/api/docs"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-100"
-        >
-          <Icon name="book" className="h-4 w-4" /> API docs
-        </a>
+        {EXTERNAL.map((item) => (
+          <a
+            key={item.label}
+            href={item.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+          >
+            <Icon name={item.icon} className="h-4 w-4 shrink-0" /> {item.label}
+          </a>
+        ))}
       </div>
     </aside>
   );
