@@ -157,18 +157,26 @@ def validate_sql(sql: str, db_flag: str | None = None) -> dict[str, object]:
     if "information_schema" in lower_trim or "sys." in lower_trim or "pg_catalog." in lower_trim:
         return {"valid": False, "reason": "Access to system schemas is not permitted"}
 
-    # Validate referenced tables are in the enrolled schema index (fail-open if the index
-    # file is absent). CTE names defined in the same query are allowed FROM/JOIN targets.
+    # Validate referenced tables are in the enrolled schema index. Fail CLOSED: a db_flag
+    # must have a readable schema index, otherwise we cannot vouch for the tables it touches.
+    # CTE names defined in the same query are allowed FROM/JOIN targets.
     if db_flag:
         allowed = _load_schema_index_tables(db_flag)
-        if allowed is not None:
-            refs = _extract_referenced_tables(trimmed)
-            cte_names = _extract_cte_names(trimmed)
-            missing = refs - allowed - cte_names
-            if missing:
-                return {
-                    "valid": False,
-                    "reason": f"Unknown or unauthorized tables referenced: {', '.join(sorted(missing))}",
-                }
+        if allowed is None:
+            return {
+                "valid": False,
+                "reason": (
+                    f"No schema index found for database '{db_flag}'. "
+                    "Enroll/index the database before querying it."
+                ),
+            }
+        refs = _extract_referenced_tables(trimmed)
+        cte_names = _extract_cte_names(trimmed)
+        missing = refs - allowed - cte_names
+        if missing:
+            return {
+                "valid": False,
+                "reason": f"Unknown or unauthorized tables referenced: {', '.join(sorted(missing))}",
+            }
 
     return {"valid": True, "reason": "SQL passed read-only validation"}

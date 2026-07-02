@@ -57,6 +57,27 @@ function humanizeError(message: string): string {
   return message.trim();
 }
 
+/** Stable per-browser (anon) + per-tab identifiers so the backend keeps conversation memory. */
+function getConversationIds(): { userId: string; sessionId: string } {
+  if (typeof window === "undefined") return { userId: "", sessionId: "" };
+  try {
+    let userId = localStorage.getItem("dbwhisper.uid") ?? "";
+    if (!userId) {
+      userId = `anon-${crypto.randomUUID()}`;
+      localStorage.setItem("dbwhisper.uid", userId);
+    }
+    let sessionId = sessionStorage.getItem("dbwhisper.sid") ?? "";
+    if (!sessionId) {
+      sessionId = crypto.randomUUID();
+      sessionStorage.setItem("dbwhisper.sid", sessionId);
+    }
+    return { userId, sessionId };
+  } catch {
+    // Storage unavailable (e.g. private mode) — fall back to ephemeral ids.
+    return { userId: `anon-${crypto.randomUUID()}`, sessionId: crypto.randomUUID() };
+  }
+}
+
 export default function Home() {
   const [query, setQuery] = useState("");
   const [dbFlag, setDbFlag] = useState("");
@@ -92,10 +113,13 @@ export default function Home() {
     setLoading(true);
     setError(null);
 
+    const { userId, sessionId } = getConversationIds();
     const req: QueryRequest = {
       query: trimmedQuery,
       db_flag: trimmedFlag,
       output_format: "json",
+      user_id: userId,
+      session_id: sessionId,
     };
 
     try {

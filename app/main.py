@@ -441,14 +441,11 @@ async def execute_query(request: QueryRequest, http_request: Request) -> QueryRe
                 data=None,
                 error=validation_result.get("reason"),
                 selected_tables=selected_tables or None,
-                keyword_matches=None,
                 follow_up_questions=follow_up_questions,
                 metadata=ExecutionMetadata(
                     execution_time_ms=None,
                     total_rows=None,
-                    retry_count=0,
                 ),
-                token_usage=None,
             )
 
         exec_start = perf_counter()
@@ -482,14 +479,11 @@ async def execute_query(request: QueryRequest, http_request: Request) -> QueryRe
                 data=None,
                 error=execution.get("error"),
                 selected_tables=selected_tables or None,
-                keyword_matches=None,
                 follow_up_questions=follow_up_questions,
                 metadata=ExecutionMetadata(
                     execution_time_ms=elapsed_ms,
                     total_rows=None,
-                    retry_count=0,
                 ),
-                token_usage=None,
             )
 
         dataframe = execution.get("dataframe")
@@ -513,14 +507,11 @@ async def execute_query(request: QueryRequest, http_request: Request) -> QueryRe
                 data=None,
                 error=formatted.get("message", "Failed to format results"),
                 selected_tables=selected_tables or None,
-                keyword_matches=None,
                 follow_up_questions=follow_up_questions,
                 metadata=ExecutionMetadata(
                     execution_time_ms=elapsed_ms,
                     total_rows=None,
-                    retry_count=0,
                 ),
-                token_usage=None,
             )
 
         total_rows_raw = (
@@ -643,15 +634,12 @@ async def execute_query(request: QueryRequest, http_request: Request) -> QueryRe
             data=formatted.get("data"),
             error=None,
             selected_tables=selected_tables or None,
-            keyword_matches=None,
             follow_up_questions=follow_up_questions,
             metadata=ExecutionMetadata(
                 execution_time_ms=elapsed_ms,
                 total_rows=total_rows,
-                retry_count=0,
             ),
             natural_summary=natural_summary,
-            token_usage=None,
         )
 
     except ValueError as e:
@@ -739,24 +727,30 @@ async def enroll_database(
         project_connection = get_project_db_connection_string()
         create_metadata_tables(project_connection)
         db_row = _fetch_or_create_database_config(request, project_connection, owner_id=owner_id)
-        # Validate connection read-only status
+        # Validate connection read-only status — reject writable connections (fail closed).
+        read_only_ok = True
+        read_only_msg = ""
         try:
-            check_ok, message = is_read_only_connection(
+            read_only_ok, read_only_msg = is_read_only_connection(
                 db_row.connection_string, db_type=request.db_type
             )
-            if not check_ok:
-                logger.warning(
-                    "Database connection for db_flag=%s may not be read-only: %s",
-                    request.db_flag,
-                    message,
-                )
-                # For safety, prevent enrollment if write privileges detected
-                raise SQLAlchemyError(
-                    f"Connection for db_flag={request.db_flag} seems writable: {message}"
-                )
         except Exception as check_exc:
+            # The check itself failed (e.g. transient/unsupported) — log and continue.
             logger.warning(
                 "Failed to validate read-only status for db_flag=%s: %s", request.db_flag, check_exc
+            )
+        if not read_only_ok:
+            logger.warning(
+                "Refusing to enroll db_flag=%s — connection appears writable: %s",
+                request.db_flag,
+                read_only_msg,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Refusing to enroll '{request.db_flag}': the connection appears writable "
+                    f"({read_only_msg}). Provide a read-only database role."
+                ),
             )
 
     except SQLAlchemyError as err:

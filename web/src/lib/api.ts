@@ -52,7 +52,6 @@ export interface QueryResultData {
 export interface ExecutionMetadata {
   execution_time_ms: number | null;
   total_rows: number | null;
-  retry_count: number;
 }
 
 export interface QueryResponse {
@@ -65,7 +64,6 @@ export interface QueryResponse {
   follow_up_questions: string[] | null;
   metadata: ExecutionMetadata;
   natural_summary: string | null;
-  token_usage: Record<string, unknown> | null;
 }
 
 /** Error thrown when the API responds with a non-2xx HTTP status. */

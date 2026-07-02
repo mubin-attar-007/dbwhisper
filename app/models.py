@@ -228,7 +228,6 @@ class ExecutionMetadata(BaseModel):
 
     execution_time_ms: float | None = Field(None, description="Execution time in milliseconds")
     total_rows: int | None = Field(None, description="Total rows returned")
-    retry_count: int = Field(0, description="Number of retries performed")
 
     @field_validator("execution_time_ms", mode="before")
     def round_value(cls, v: any, info: ValidationInfo) -> float:
@@ -271,13 +270,11 @@ class QueryResponse(BaseModel):
     data: QueryResultData | None = Field(None, description="Query results envelope")
     error: str | None = Field(None, description="Error message if status is error")
     selected_tables: list[str] | None = Field(None, description="Tables selected for this query")
-    keyword_matches: list[str] | None = Field(None, description="Tokens used for schema selection")
     follow_up_questions: list[str] | None = Field(
         None,
         description="Additional follow-up questions the agent would ask to clarify intent",
     )
     metadata: ExecutionMetadata = Field(default_factory=ExecutionMetadata)
-    token_usage: dict[str, Any] | None = Field(None, description="Token usage metrics")
     natural_summary: str | None = Field(
         None,
         description="LLM-generated natural language summary of the returned dataset",
