@@ -95,6 +95,22 @@ app = FastAPI(
     version="1.0.0",
 )
 
+
+@app.on_event("startup")
+async def _ensure_project_schema() -> None:
+    """Self-heal the project metadata schema on boot (idempotent).
+
+    ``create_metadata_tables`` runs ``create_all`` and adds ``Database_config.owner_id`` when
+    missing, so a database provisioned before multi-tenancy is repaired on deploy instead of
+    500-ing ``/query``. Never fatal — the underlying call is internally guarded.
+    """
+    try:
+        create_metadata_tables(get_project_db_connection_string())
+        logger.info("Startup: project metadata schema ensured.")
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("Startup schema ensure skipped: %s", exc)
+
+
 # Dev-only static UI (chat page)
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
