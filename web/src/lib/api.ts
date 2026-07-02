@@ -66,6 +66,13 @@ export interface QueryResponse {
   natural_summary: string | null;
 }
 
+export interface DatabaseSummary {
+  db_flag: string;
+  db_type: string;
+  description: string | null;
+  is_public: boolean;
+}
+
 /** Error thrown when the API responds with a non-2xx HTTP status. */
 export class ApiError extends Error {
   readonly status: number;
@@ -162,4 +169,20 @@ export async function runQuery(
   }
 
   return payload as QueryResponse;
+}
+
+/** Calls `GET /databases`. Returns the enrolled databases the caller may query. */
+export async function listDatabases(signal?: AbortSignal): Promise<DatabaseSummary[]> {
+  const res = await fetch(`${API_BASE_URL}/databases`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    credentials: "include",
+    cache: "no-store",
+    signal,
+  });
+  if (!res.ok) {
+    throw new ApiError(`Failed to list databases (HTTP ${res.status})`, res.status, null);
+  }
+  const payload = (await parseJsonSafe(res)) as { databases?: DatabaseSummary[] } | null;
+  return payload?.databases ?? [];
 }

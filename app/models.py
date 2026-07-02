@@ -281,6 +281,21 @@ class QueryResponse(BaseModel):
     )
 
 
+class DatabaseSummary(BaseModel):
+    """Non-sensitive metadata for one enrolled database (never the connection string)."""
+
+    db_flag: str
+    db_type: str = ""
+    description: str | None = None
+    is_public: bool = False
+
+
+class DatabasesResponse(BaseModel):
+    """The enrolled databases the caller may query."""
+
+    databases: list[DatabaseSummary] = Field(default_factory=list)
+
+
 class SchemaEmbeddingRequest(BaseModel):
     """Request payload for the schema embedding generator."""
 

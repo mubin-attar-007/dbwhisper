@@ -44,6 +44,8 @@ from app.core import query_executor, result_formatter, sql_validator
 from app.core.config import get_settings
 from app.core.observability import init_sentry
 from app.models import (
+    DatabasesResponse,
+    DatabaseSummary,
     DocumentationStageSummary,
     EmbeddingStageSummary,
     ExecutionMetadata,
@@ -271,6 +273,50 @@ def _enforce_db_access(http_request: Request, db_flag: str) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this database.",
         )
+
+
+@app.get(
+    "/databases",
+    response_model=DatabasesResponse,
+    dependencies=[Depends(require_api_key_if_enabled)],
+)
+async def list_databases(http_request: Request) -> DatabasesResponse:
+    """List the enrolled databases the caller may query.
+
+    Public databases (``owner_id`` NULL, e.g. the shared demo) are visible to everyone; when
+    auth is enabled a signed-in user additionally sees the databases they own. Returns only
+    non-sensitive metadata — never connection strings.
+    """
+    settings = get_settings()
+    user_id: int | None = None
+    if settings.user_auth_enabled:
+        from app.security.user_auth import get_current_user
+
+        user = get_current_user(http_request)
+        user_id = user.id if user else None
+
+    session = get_session(get_project_db_connection_string())
+    try:
+        rows = session.query(DatabaseConfig).all()
+    finally:
+        session.close()
+
+    items: list[DatabaseSummary] = []
+    for row in rows:
+        is_public = row.owner_id is None
+        if settings.user_auth_enabled and not is_public and row.owner_id != user_id:
+            continue
+        items.append(
+            DatabaseSummary(
+                db_flag=row.db_flag,
+                db_type=row.db_type or "",
+                description=row.description,
+                is_public=is_public,
+            )
+        )
+    # Public (e.g. demo) first, then alphabetical.
+    items.sort(key=lambda d: (not d.is_public, d.db_flag))
+    return DatabasesResponse(databases=items)
 
 
 @app.post(

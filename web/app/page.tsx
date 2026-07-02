@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ApiError,
+  listDatabases,
   runQuery,
+  type DatabaseSummary,
   type QueryRequest,
   type QueryResponse,
 } from "@/src/lib/api";
@@ -85,12 +87,34 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [response, setResponse] = useState<QueryResponse | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [databases, setDatabases] = useState<DatabaseSummary[]>([]);
 
   const abortRef = useRef<AbortController | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     setHistory(loadHistory());
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    listDatabases()
+      .then((dbs) => {
+        if (cancelled) return;
+        setDatabases(dbs);
+        setDbFlag((prev) => {
+          if (prev.trim()) return prev;
+          const preferred =
+            dbs.find((d) => d.db_flag === "demo") ?? dbs.find((d) => d.is_public) ?? dbs[0];
+          return preferred?.db_flag ?? prev;
+        });
+      })
+      .catch(() => {
+        /* endpoint unavailable → keep the free-text fallback */
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const submit = useCallback(async () => {
@@ -195,6 +219,9 @@ export default function Home() {
     setHistory([]);
   }, []);
 
+  const selectedIsPublic =
+    databases.find((d) => d.db_flag === dbFlag)?.is_public ?? dbFlag.trim() === "demo";
+
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-8 px-4 py-8 sm:px-6 lg:py-12">
       <header className="space-y-6">
@@ -263,22 +290,46 @@ export default function Home() {
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="sm:max-w-xs sm:flex-1">
-            <label
-              htmlFor="db_flag"
-              className="mb-1.5 block text-sm font-medium text-slate-300"
-            >
-              Database
-            </label>
-            <input
-              id="db_flag"
-              type="text"
-              value={dbFlag}
-              onChange={(e) => setDbFlag(e.target.value)}
-              placeholder="crm_db"
-              autoComplete="off"
-              spellCheck={false}
-              className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2.5 font-mono text-sm text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            />
+            <div className="mb-1.5 flex items-center gap-2">
+              <label htmlFor="db_flag" className="block text-sm font-medium text-slate-300">
+                Database
+              </label>
+              {selectedIsPublic && (
+                <span
+                  className="inline-flex items-center rounded-full border border-amber-600/50 bg-amber-950/40 px-2 py-0.5 text-[11px] font-medium text-amber-300"
+                  title="Built-in sample data. Enroll your own database to query it."
+                >
+                  sample data
+                </span>
+              )}
+            </div>
+            {databases.length > 0 ? (
+              <select
+                id="db_flag"
+                value={dbFlag}
+                onChange={(e) => setDbFlag(e.target.value)}
+                className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                {databases.map((d) => (
+                  <option key={d.db_flag} value={d.db_flag}>
+                    {d.db_flag}
+                    {d.is_public ? " (sample)" : ""}
+                    {d.description ? ` — ${d.description}` : ""}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                id="db_flag"
+                type="text"
+                value={dbFlag}
+                onChange={(e) => setDbFlag(e.target.value)}
+                placeholder="crm_db"
+                autoComplete="off"
+                spellCheck={false}
+                className="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2.5 font-mono text-sm text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            )}
           </div>
 
           <div className="flex gap-3">
