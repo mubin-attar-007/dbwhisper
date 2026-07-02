@@ -59,6 +59,8 @@ from app.models import (
     SchemaPipelineReport,
     SchemaPipelineRequest,
     SchemaPipelineResponse,
+    SchemaResponse,
+    SchemaTable,
     VerifiedPair,
     VerifiedPairRequest,
     VerifiedPairsResponse,
@@ -381,6 +383,48 @@ async def delete_training_pair(pair_id: int, http_request: Request) -> dict[str,
             status_code=status.HTTP_404_NOT_FOUND, detail="Verified pair not found."
         )
     return {"deleted": True}
+
+
+@app.get(
+    "/schemas/{db_flag}",
+    response_model=SchemaResponse,
+    dependencies=[Depends(require_api_key_if_enabled)],
+)
+async def get_schema(db_flag: str, http_request: Request) -> SchemaResponse:
+    """Return the enrolled schema (tables + columns + PKs) for the schema browser."""
+    _enforce_db_access(http_request, db_flag)
+    import yaml
+
+    index_path = (
+        Path(PROJECT_ROOT) / "database_schemas" / db_flag / "schema" / "schema_index.yaml"
+    )
+    if not index_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No schema indexed for '{db_flag}'. Enroll the database first.",
+        )
+    try:
+        data = yaml.safe_load(index_path.read_text(encoding="utf-8")) or {}
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to read schema: {exc}",
+        ) from exc
+
+    tables = [
+        SchemaTable(
+            table=str(t.get("table", "")),
+            schema_name=str(t.get("schema", "")),
+            columns=[str(c) for c in (t.get("column_names") or [])],
+            primary_key=[str(c) for c in (t.get("primary_key") or [])],
+            has_foreign_keys=bool(t.get("has_foreign_keys", False)),
+            description=(t.get("short_description") or None),
+        )
+        for t in (data.get("tables") or [])
+    ]
+    return SchemaResponse(
+        db_flag=db_flag, database_name=data.get("database_name"), tables=tables
+    )
 
 
 @app.post(

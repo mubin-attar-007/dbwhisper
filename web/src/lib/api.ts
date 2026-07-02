@@ -92,6 +92,21 @@ export interface VerifiedPair {
   created_at: string | null;
 }
 
+export interface SchemaTable {
+  table: string;
+  schema_name: string;
+  columns: string[];
+  primary_key: string[];
+  has_foreign_keys: boolean;
+  description: string | null;
+}
+
+export interface SchemaResponse {
+  db_flag: string;
+  database_name: string | null;
+  tables: SchemaTable[];
+}
+
 /** Error thrown when the API responds with a non-2xx HTTP status. */
 export class ApiError extends Error {
   readonly status: number;
@@ -285,4 +300,23 @@ export async function deleteVerifiedPair(id: number, signal?: AbortSignal): Prom
   if (!res.ok) {
     throw new ApiError(`Failed to delete (HTTP ${res.status})`, res.status, null);
   }
+}
+
+/** Calls `GET /schemas/{db_flag}` — the enrolled tables/columns for the schema browser. */
+export async function getSchema(dbFlag: string, signal?: AbortSignal): Promise<SchemaResponse> {
+  const res = await fetch(`${API_BASE_URL}/schemas/${encodeURIComponent(dbFlag)}`, {
+    headers: { Accept: "application/json" },
+    credentials: "include",
+    cache: "no-store",
+    signal,
+  });
+  const payload = await parseJsonSafe(res);
+  if (!res.ok) {
+    throw new ApiError(
+      extractErrorMessage(payload, `Failed to load schema (HTTP ${res.status})`),
+      res.status,
+      payload,
+    );
+  }
+  return payload as SchemaResponse;
 }

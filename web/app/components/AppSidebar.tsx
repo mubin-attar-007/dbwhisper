@@ -18,8 +18,8 @@ function timeAgo(ts: number): string {
 const NAV: { label: string; icon: IconName; href?: string; soon?: boolean }[] = [
   { label: "Console", icon: "spark", href: "/app" },
   { label: "Saved / Verified", icon: "star", href: "/app/training" },
+  { label: "Schema", icon: "table", href: "/app/schema" },
   { label: "Databases", icon: "database", soon: true },
-  { label: "Schema", icon: "table", soon: true },
 ];
 
 export function AppSidebar() {

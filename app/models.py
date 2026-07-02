@@ -333,6 +333,23 @@ class VerifiedPairsResponse(BaseModel):
     pairs: list[VerifiedPair] = Field(default_factory=list)
 
 
+class SchemaTable(BaseModel):
+    """One enrolled table, for the schema browser (non-sensitive metadata only)."""
+
+    table: str
+    schema_name: str = ""
+    columns: list[str] = Field(default_factory=list)
+    primary_key: list[str] = Field(default_factory=list)
+    has_foreign_keys: bool = False
+    description: str | None = None
+
+
+class SchemaResponse(BaseModel):
+    db_flag: str
+    database_name: str | None = None
+    tables: list[SchemaTable] = Field(default_factory=list)
+
+
 class SchemaEmbeddingRequest(BaseModel):
     """Request payload for the schema embedding generator."""
 
