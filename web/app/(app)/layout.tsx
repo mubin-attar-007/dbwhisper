@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { AuthBar } from "../components/AuthBar";
+import { AppSidebar } from "../components/AppSidebar";
+import { AppTopBar } from "../components/AppTopBar";
 import { AuthProvider } from "../components/AuthProvider";
-import { Footer } from "../components/Footer";
+import { WorkspaceProvider } from "../components/WorkspaceProvider";
 
 export const metadata: Metadata = {
   title: "Console",
@@ -13,18 +14,16 @@ const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === "true";
 export default function AppLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const content = (
-    <>
-      <div className="flex-1">{children}</div>
-      <Footer />
-    </>
+  const shell = (
+    <WorkspaceProvider>
+      <div className="flex h-screen flex-col">
+        <AppTopBar />
+        <div className="flex min-h-0 flex-1">
+          <AppSidebar />
+          <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
+        </div>
+      </div>
+    </WorkspaceProvider>
   );
-  return authEnabled ? (
-    <AuthProvider>
-      <AuthBar />
-      {content}
-    </AuthProvider>
-  ) : (
-    content
-  );
+  return authEnabled ? <AuthProvider>{shell}</AuthProvider> : shell;
 }
