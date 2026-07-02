@@ -295,6 +295,37 @@ def validate_sql_tool(sql: str) -> str:
     return "OK" if result.get("valid") else f"Invalid: {result.get('reason')}"
 
 
+@tool("search_verified_queries", return_direct=False)
+def search_verified_queries_tool(query: str, k: int = 3) -> str:
+    """Find human-approved example question->SQL pairs similar to the user's question.
+
+    Prefer adapting the SQL from a close verified example over writing from scratch — these pairs
+    were reviewed and marked correct for THIS database. Returns matching examples, or a short note
+    when none exist yet.
+    """
+    if not query.strip():
+        return "No query provided."
+    collection = _require_collection()
+    filters = _filters_with_context({"section": "verified_qsql"})
+    docs = vector_search(query, collection, filters=filters, k=k)
+    parts = []
+    for doc in docs:
+        q = doc.metadata.get("question") or doc.page_content.strip()
+        sql = doc.metadata.get("sql", "")
+        if sql:
+            parts.append(f"Verified example:\nQ: {q}\nSQL: {sql}")
+    if not parts:
+        return "No verified examples found for this database yet."
+    out = "\n\n".join(parts)
+    _log_tool(
+        "search_verified_queries",
+        {"query": query, "k": k, "filters": filters},
+        out,
+        {"hits": len(docs)},
+    )
+    return out
+
+
 __all__ = [
     "agent_context",
     "default_collection_name",
@@ -305,5 +336,6 @@ __all__ = [
     "get_context_session_id",
     "get_context_user_id",
     "search_tables_tool",
+    "search_verified_queries_tool",
     "validate_sql_tool",
 ]

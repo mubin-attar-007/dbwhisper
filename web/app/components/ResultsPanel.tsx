@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import type { QueryResponse } from "@/src/lib/api";
+import { saveVerifiedPair, type QueryResponse } from "@/src/lib/api";
 import { CopyButton } from "./CopyButton";
 import { ResultChart } from "./ResultChart";
 import { ResultsTable } from "./ResultsTable";
+import { useWorkspace } from "./WorkspaceProvider";
 
 function ValidationBadge({ passed }: { passed: boolean | null }) {
   if (passed === null) return null;
@@ -33,6 +34,19 @@ export function ResultsPanel({
   const selectedTables = response.selected_tables ?? [];
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  const { query, dbFlag } = useWorkspace();
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  async function saveVerified() {
+    if (!sql || !query.trim() || !dbFlag.trim()) return;
+    setSaveState("saving");
+    try {
+      await saveVerifiedPair({ db_flag: dbFlag, question: query.trim(), sql });
+      setSaveState("saved");
+    } catch {
+      setSaveState("error");
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -69,6 +83,27 @@ export function ResultsPanel({
           </summary>
           <div className="space-y-3 border-t border-slate-800 p-4">
             <div className="flex items-center justify-end gap-2">
+              {!editing && (
+                <button
+                  type="button"
+                  onClick={saveVerified}
+                  disabled={saveState === "saving" || saveState === "saved"}
+                  title="Save this question + SQL as a verified example so the agent reuses it."
+                  className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed ${
+                    saveState === "saved"
+                      ? "border-emerald-700/60 bg-emerald-900/20 text-emerald-300"
+                      : "border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700"
+                  }`}
+                >
+                  {saveState === "saved"
+                    ? "✓ Verified"
+                    : saveState === "saving"
+                      ? "Saving…"
+                      : saveState === "error"
+                        ? "Retry save"
+                        : "👍 Save as verified"}
+                </button>
+              )}
               {onRerunSql && !editing && (
                 <button
                   type="button"

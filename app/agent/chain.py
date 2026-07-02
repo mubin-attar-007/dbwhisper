@@ -39,6 +39,7 @@ from app.agent.tools import (
     get_context_session_id,
     get_context_user_id,
     search_tables_tool,
+    search_verified_queries_tool,
     validate_sql_tool,
 )
 from app.utils.logger import sanitize_for_log, setup_logging
@@ -292,6 +293,7 @@ def create_sql_agent(llm: BaseChatModel, system_prompt: str) -> Any:
 
     tools = [
         search_tables_tool,
+        search_verified_queries_tool,
         fetch_table_summary_tool,
         fetch_table_section_tool,
         validate_sql_tool,

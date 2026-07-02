@@ -59,6 +59,9 @@ from app.models import (
     SchemaPipelineReport,
     SchemaPipelineRequest,
     SchemaPipelineResponse,
+    VerifiedPair,
+    VerifiedPairRequest,
+    VerifiedPairsResponse,
 )
 from app.schema_pipeline import SchemaPipelineOrchestrator
 from app.schema_pipeline.embedding_pipeline import (
@@ -86,6 +89,11 @@ from db.database_manager import (
     get_session,
 )
 from db.model import DatabaseConfig
+from db.verified_queries import (
+    delete_verified_query,
+    list_verified_queries,
+    save_verified_query,
+)
 
 # Initialize logging + optional Sentry (no-op unless SENTRY_DSN is set)
 logger = setup_logging(__name__)
@@ -276,6 +284,17 @@ def _enforce_db_access(http_request: Request, db_flag: str) -> None:
         )
 
 
+def _resolve_owner(http_request: Request) -> int | None:
+    """Owning user id for training data (None when auth is off or the caller is anonymous)."""
+    settings = get_settings()
+    if not settings.user_auth_enabled:
+        return None
+    from app.security.user_auth import get_current_user
+
+    user = get_current_user(http_request)
+    return user.id if user else None
+
+
 @app.get(
     "/databases",
     response_model=DatabasesResponse,
@@ -318,6 +337,50 @@ async def list_databases(http_request: Request) -> DatabasesResponse:
     # Public (e.g. demo) first, then alphabetical.
     items.sort(key=lambda d: (not d.is_public, d.db_flag))
     return DatabasesResponse(databases=items)
+
+
+@app.post(
+    "/training/pairs",
+    response_model=VerifiedPair,
+    dependencies=[Depends(require_api_key_if_enabled)],
+)
+async def save_training_pair(
+    request: VerifiedPairRequest, http_request: Request
+) -> VerifiedPair:
+    """Save a human-approved question -> SQL pair. The SQL must be read-only (validated here)."""
+    _enforce_db_access(http_request, request.db_flag)
+    try:
+        pair = save_verified_query(
+            request.db_flag, request.question, request.sql, _resolve_owner(http_request)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return VerifiedPair(**pair)
+
+
+@app.get(
+    "/training/pairs",
+    response_model=VerifiedPairsResponse,
+    dependencies=[Depends(require_api_key_if_enabled)],
+)
+async def list_training_pairs(
+    http_request: Request, db_flag: str | None = None
+) -> VerifiedPairsResponse:
+    """List saved verified pairs (scoped to the caller / the shared public set)."""
+    pairs = list_verified_queries(db_flag, _resolve_owner(http_request))
+    return VerifiedPairsResponse(pairs=[VerifiedPair(**p) for p in pairs])
+
+
+@app.delete(
+    "/training/pairs/{pair_id}",
+    dependencies=[Depends(require_api_key_if_enabled)],
+)
+async def delete_training_pair(pair_id: int, http_request: Request) -> dict[str, bool]:
+    if not delete_verified_query(pair_id, _resolve_owner(http_request)):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Verified pair not found."
+        )
+    return {"deleted": True}
 
 
 @app.post(

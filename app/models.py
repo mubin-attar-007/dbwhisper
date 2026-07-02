@@ -313,6 +313,26 @@ class DatabasesResponse(BaseModel):
     databases: list[DatabaseSummary] = Field(default_factory=list)
 
 
+class VerifiedPairRequest(BaseModel):
+    """Save a human-approved question -> SQL pair (the verified-query flywheel)."""
+
+    db_flag: str = Field(..., min_length=1)
+    question: str = Field(..., min_length=1)
+    sql: str = Field(..., min_length=1)
+
+
+class VerifiedPair(BaseModel):
+    id: int
+    db_flag: str
+    question: str
+    sql: str
+    created_at: str | None = None
+
+
+class VerifiedPairsResponse(BaseModel):
+    pairs: list[VerifiedPair] = Field(default_factory=list)
+
+
 class SchemaEmbeddingRequest(BaseModel):
     """Request payload for the schema embedding generator."""
 

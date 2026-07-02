@@ -84,6 +84,14 @@ export interface DatabaseSummary {
   is_public: boolean;
 }
 
+export interface VerifiedPair {
+  id: number;
+  db_flag: string;
+  question: string;
+  sql: string;
+  created_at: string | null;
+}
+
 /** Error thrown when the API responds with a non-2xx HTTP status. */
 export class ApiError extends Error {
   readonly status: number;
@@ -223,4 +231,58 @@ export async function runSql(
     );
   }
   return payload as QueryResponse;
+}
+
+/** Verified Q→SQL library (the flywheel). */
+export async function listVerifiedPairs(
+  dbFlag?: string,
+  signal?: AbortSignal,
+): Promise<VerifiedPair[]> {
+  const qs = dbFlag ? `?db_flag=${encodeURIComponent(dbFlag)}` : "";
+  const res = await fetch(`${API_BASE_URL}/training/pairs${qs}`, {
+    headers: { Accept: "application/json" },
+    credentials: "include",
+    cache: "no-store",
+    signal,
+  });
+  if (!res.ok) {
+    throw new ApiError(`Failed to load verified queries (HTTP ${res.status})`, res.status, null);
+  }
+  const payload = (await parseJsonSafe(res)) as { pairs?: VerifiedPair[] } | null;
+  return payload?.pairs ?? [];
+}
+
+export async function saveVerifiedPair(
+  input: { db_flag: string; question: string; sql: string },
+  signal?: AbortSignal,
+): Promise<VerifiedPair> {
+  const res = await fetch(`${API_BASE_URL}/training/pairs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(input),
+    credentials: "include",
+    cache: "no-store",
+    signal,
+  });
+  const payload = await parseJsonSafe(res);
+  if (!res.ok) {
+    throw new ApiError(
+      extractErrorMessage(payload, `Failed to save (HTTP ${res.status})`),
+      res.status,
+      payload,
+    );
+  }
+  return payload as VerifiedPair;
+}
+
+export async function deleteVerifiedPair(id: number, signal?: AbortSignal): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/training/pairs/${id}`, {
+    method: "DELETE",
+    credentials: "include",
+    cache: "no-store",
+    signal,
+  });
+  if (!res.ok) {
+    throw new ApiError(`Failed to delete (HTTP ${res.status})`, res.status, null);
+  }
 }

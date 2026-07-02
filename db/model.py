@@ -62,3 +62,28 @@ class DatabaseConfig(Base):
 
     def __repr__(self):
         return f"<DatabaseConfig(db_flag={self.db_flag}, description={self.description})>"
+
+
+class VerifiedQuery(Base):
+    """A human-approved question -> SQL pair used to steer future generation (the flywheel).
+
+    Saved only on explicit user approval; the SQL is validated read-only before storing. A copy
+    of the question is embedded into the pgvector collection (tagged section=verified_qsql) so the
+    agent can retrieve similar approved examples at generation time.
+    """
+
+    __tablename__ = "verified_queries"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    db_flag = Column(String(100), nullable=False, index=True)
+    question = Column(Text, nullable=False)
+    sql = Column(Text, nullable=False)
+    # pgvector document id for the embedded copy, so we can delete it alongside the row.
+    embedding_id = Column(String(64), nullable=True)
+    owner_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    def __repr__(self):
+        return f"<VerifiedQuery(id={self.id}, db_flag={self.db_flag})>"
