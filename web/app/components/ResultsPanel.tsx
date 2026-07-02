@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { QueryResponse } from "@/src/lib/api";
 import { CopyButton } from "./CopyButton";
 import { ResultChart } from "./ResultChart";
@@ -21,13 +22,17 @@ function ValidationBadge({ passed }: { passed: boolean | null }) {
 export function ResultsPanel({
   response,
   onFollowUp,
+  onRerunSql,
 }: {
   response: QueryResponse;
   onFollowUp: (question: string) => void;
+  onRerunSql?: (sql: string) => void;
 }) {
   const sql = response.sql ?? response.data?.sql ?? null;
   const followUps = response.follow_up_questions ?? [];
   const selectedTables = response.selected_tables ?? [];
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
 
   return (
     <div className="space-y-6">
@@ -63,12 +68,60 @@ export function ResultsPanel({
             <ValidationBadge passed={response.validation_passed} />
           </summary>
           <div className="space-y-3 border-t border-slate-800 p-4">
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-end gap-2">
+              {onRerunSql && !editing && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraft(sql ?? "");
+                    setEditing(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                >
+                  Edit &amp; run
+                </button>
+              )}
               <CopyButton value={sql} label="Copy SQL" />
             </div>
-            <pre className="scrollbar-thin overflow-auto rounded-lg border border-slate-800 bg-slate-950/60 p-4 font-mono text-sm leading-relaxed text-slate-200">
-              <code>{sql}</code>
-            </pre>
+            {editing ? (
+              <div className="space-y-2">
+                <textarea
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  rows={Math.min(14, Math.max(4, draft.split("\n").length + 1))}
+                  spellCheck={false}
+                  aria-label="Edit SQL"
+                  className="scrollbar-thin w-full resize-y rounded-lg border border-slate-700 bg-slate-950/60 p-4 font-mono text-sm leading-relaxed text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditing(false);
+                      onRerunSql?.(draft);
+                    }}
+                    disabled={!draft.trim()}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    ▸ Run this SQL
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditing(false)}
+                    className="inline-flex items-center rounded-md border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                  >
+                    Cancel
+                  </button>
+                  <span className="text-xs text-slate-500">
+                    Runs through the same read-only validator — writes are always rejected.
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <pre className="scrollbar-thin overflow-auto rounded-lg border border-slate-800 bg-slate-950/60 p-4 font-mono text-sm leading-relaxed text-slate-200">
+                <code>{sql}</code>
+              </pre>
+            )}
             {selectedTables.length > 0 && (
               <div className="space-y-1.5">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">

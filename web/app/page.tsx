@@ -5,6 +5,7 @@ import {
   ApiError,
   listDatabases,
   runQuery,
+  runSql,
   type DatabaseSummary,
   type QueryRequest,
   type QueryResponse,
@@ -202,6 +203,50 @@ export default function Home() {
     textareaRef.current?.focus({ preventScroll: true });
   }, []);
 
+  const handleRerunSql = useCallback(
+    async (sqlText: string) => {
+      const trimmedSql = sqlText.trim();
+      const trimmedFlag = dbFlag.trim();
+      if (!trimmedSql || !trimmedFlag) return;
+
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setLoading(true);
+      setError(null);
+
+      const { userId, sessionId } = getConversationIds();
+      try {
+        const res = await runSql(
+          {
+            sql: trimmedSql,
+            db_flag: trimmedFlag,
+            output_format: "json",
+            user_id: userId,
+            session_id: sessionId,
+          },
+          controller.signal,
+        );
+        setResponse(res);
+        if (res.status === "error") {
+          setError(res.error || "The query returned an error.");
+        }
+      } catch (err: unknown) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setResponse(null);
+        if (err instanceof ApiError) setError(err.message);
+        else if (err instanceof Error) setError(`Network error: ${err.message}`);
+        else setError("An unexpected error occurred.");
+      } finally {
+        if (abortRef.current === controller) {
+          setLoading(false);
+          abortRef.current = null;
+        }
+      }
+    },
+    [dbFlag],
+  );
+
   const handleExample = useCallback((question: string) => {
     setQuery(question);
     setDbFlag((prev) => (prev.trim() ? prev : "demo"));
@@ -397,7 +442,11 @@ export default function Home() {
         {loading && <StagedProgress />}
 
         {!loading && response && response.status === "success" && (
-          <ResultsPanel response={response} onFollowUp={handleFollowUp} />
+          <ResultsPanel
+            response={response}
+            onFollowUp={handleFollowUp}
+            onRerunSql={handleRerunSql}
+          />
         )}
 
         {!response && !error && !loading && (

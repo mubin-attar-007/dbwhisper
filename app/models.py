@@ -223,6 +223,23 @@ class QueryRequest(BaseModel):
     )
 
 
+class RunSqlRequest(BaseModel):
+    """Execute a user-provided (edited) SQL statement, bypassing LLM generation.
+
+    The SQL is still routed through the same read-only validator + executor, so the read-only
+    guarantee is preserved regardless of what the user typed. Powers the "Edit & run" UI.
+    """
+
+    sql: str = Field(..., min_length=1, description="Read-only SQL to validate and execute")
+    db_flag: str = Field(..., min_length=1, description="Target database")
+    output_format: str = Field(
+        default="json", description="Output format", pattern="^(json|csv|table)$"
+    )
+    page: int | None = Field(None, ge=1, description="Page number for paged results (1-indexed)")
+    page_size: int | None = Field(None, ge=1, description="Rows per page")
+    include_total: bool | None = Field(False, description="Compute total rows via a COUNT() query")
+
+
 class ExecutionMetadata(BaseModel):
     """Metadata about query execution."""
 

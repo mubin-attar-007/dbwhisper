@@ -33,6 +33,17 @@ export interface QueryRequest {
   include_total?: boolean;
 }
 
+export interface RunSqlRequest {
+  sql: string;
+  db_flag: string;
+  output_format: OutputFormat;
+  user_id?: string;
+  session_id?: string;
+  page?: number;
+  page_size?: number;
+  include_total?: boolean;
+}
+
 export interface QueryResultData {
   /** Array of row objects when output_format === "json". */
   results: unknown;
@@ -185,4 +196,31 @@ export async function listDatabases(signal?: AbortSignal): Promise<DatabaseSumma
   }
   const payload = (await parseJsonSafe(res)) as { databases?: DatabaseSummary[] } | null;
   return payload?.databases ?? [];
+}
+
+/**
+ * Calls `POST /run_sql` — executes user-edited SQL through the same read-only validator +
+ * executor as generated SQL (no LLM). A 2xx is returned as-is even when `status === "error"`.
+ */
+export async function runSql(
+  req: RunSqlRequest,
+  signal?: AbortSignal,
+): Promise<QueryResponse> {
+  const res = await fetch(`${API_BASE_URL}/run_sql`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(req),
+    credentials: "include",
+    cache: "no-store",
+    signal,
+  });
+  const payload = await parseJsonSafe(res);
+  if (!res.ok) {
+    throw new ApiError(
+      extractErrorMessage(payload, `Run SQL failed (HTTP ${res.status})`),
+      res.status,
+      payload,
+    );
+  }
+  return payload as QueryResponse;
 }

@@ -53,6 +53,7 @@ from app.models import (
     HealthResponse,
     QueryRequest,
     QueryResponse,
+    RunSqlRequest,
     SchemaEmbeddingRequest,
     SchemaEmbeddingResponse,
     SchemaPipelineReport,
@@ -317,6 +318,95 @@ async def list_databases(http_request: Request) -> DatabasesResponse:
     # Public (e.g. demo) first, then alphabetical.
     items.sort(key=lambda d: (not d.is_public, d.db_flag))
     return DatabasesResponse(databases=items)
+
+
+@app.post(
+    "/run_sql",
+    response_model=QueryResponse,
+    dependencies=[Depends(require_api_key_if_enabled)],
+)
+async def run_sql(request: RunSqlRequest, http_request: Request) -> QueryResponse:
+    """Execute user-provided (edited) SQL, bypassing LLM generation.
+
+    The SQL is routed through the SAME read-only validator + executor as generated SQL, so the
+    read-only guarantee holds regardless of what the user typed. Powers "Edit & run" in the UI.
+    """
+    _enforce_db_access(http_request, request.db_flag)
+
+    validation = sql_validator.validate_sql(request.sql, db_flag=request.db_flag)
+    if not validation.get("valid"):
+        return QueryResponse(
+            status="error",
+            sql=request.sql,
+            validation_passed=False,
+            error=validation.get("reason"),
+            metadata=ExecutionMetadata(execution_time_ms=None, total_rows=None),
+        )
+
+    try:
+        db_settings = get_user_database_settings(request.db_flag)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown database: {exc!s}"
+        ) from exc
+    db_config = db_settings.model_dump()
+
+    exec_start = perf_counter()
+    execution = query_executor.execute_query(
+        request.sql,
+        db_config,
+        db_flag=request.db_flag,
+        page=request.page,
+        page_size=request.page_size,
+        include_total=(
+            request.include_total
+            if request.include_total is not None
+            else bool(request.page and request.page_size)
+        ),
+    )
+    elapsed_ms = (perf_counter() - exec_start) * 1000
+
+    if not execution.get("success"):
+        return QueryResponse(
+            status="error",
+            sql=request.sql,
+            validation_passed=True,
+            error=execution.get("error"),
+            metadata=ExecutionMetadata(execution_time_ms=elapsed_ms, total_rows=None),
+        )
+
+    formatted = result_formatter.format_results(
+        dataframe=execution.get("dataframe"),
+        sql=request.sql,
+        output_format=request.output_format,
+        execution_time_ms=elapsed_ms,
+        page=execution.get("page"),
+        page_size=execution.get("page_size"),
+        has_next=execution.get("has_next"),
+        total_rows=execution.get("total_rows"),
+    )
+    if formatted.get("status") != "success":
+        return QueryResponse(
+            status="error",
+            sql=request.sql,
+            validation_passed=True,
+            error=formatted.get("message", "Failed to format results"),
+            metadata=ExecutionMetadata(execution_time_ms=elapsed_ms, total_rows=None),
+        )
+
+    return QueryResponse(
+        status="success",
+        sql=request.sql,
+        validation_passed=True,
+        data=formatted.get("data"),
+        selected_tables=None,
+        follow_up_questions=None,
+        metadata=ExecutionMetadata(
+            execution_time_ms=elapsed_ms,
+            total_rows=execution.get("total_rows"),
+        ),
+        natural_summary=None,
+    )
 
 
 @app.post(
