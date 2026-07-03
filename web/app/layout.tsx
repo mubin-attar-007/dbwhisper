@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import { SITE_URL } from "@/src/lib/site";
 import "./globals.css";
 
 const inter = Inter({
@@ -15,9 +16,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
-  ),
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "DBWhisper — Natural Language to SQL",
     template: "%s · DBWhisper",
@@ -28,11 +27,15 @@ export const metadata: Metadata = {
     title: "DBWhisper — Natural Language to SQL",
     description:
       "Ask questions in plain English and get SQL plus results from the DBWhisper API.",
+    url: "/",
     siteName: "DBWhisper",
     type: "website",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
+    title: "DBWhisper — Natural Language to SQL",
+    description:
+      "Ask questions in plain English and get SQL plus results from the DBWhisper API.",
   },
 };
 
