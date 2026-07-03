@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Please report security issues privately to **rsshah412@gmail.com** (or via GitHub's
+Please report security issues privately to **sk.mubinattar@gmail.com** (or via GitHub's
 "Report a vulnerability" / private security advisory). Do not open a public issue for
 security reports. We aim to acknowledge within 72 hours.
 

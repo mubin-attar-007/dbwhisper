@@ -82,7 +82,7 @@ clean and well-structured** — this is a *"Reuse as-is + add the shell"* case, 
 
 ## Phase 4 — Git + GitHub  *(gate: repo on GitHub, history clean of secrets)*
 
-- [ ] `git init` (set identity: `OddsAway` / rsshah412@gmail.com to match the others).
+- [ ] `git init` (set identity: `Mubin Attar` / sk.mubinattar@gmail.com to match the others).
 - [ ] Verify gitleaks finds **no** secrets in the working tree before first commit.
 - [ ] Initial commit → push to new repo **`github.com/mubin-attar-007/dbwhisper`** (private to start).
 - [ ] `uv run pre-commit install` so hooks run locally going forward.
