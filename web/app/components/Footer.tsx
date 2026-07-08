@@ -24,7 +24,7 @@ export function Footer() {
             {item.label}
           </a>
         ))}
-        <span className="text-slate-500">Powered by DBWhisper — natural language → SQL</span>
+        <span className="text-slate-400">Powered by DBWhisper — natural language → SQL</span>
       </div>
     </footer>
   );

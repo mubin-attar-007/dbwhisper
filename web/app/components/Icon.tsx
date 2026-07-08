@@ -56,6 +56,15 @@ const PATHS: Record<string, ReactNode> = {
   spark: (
     <path d="M12 3l1.6 4.6a4 4 0 002.8 2.8L21 12l-4.6 1.6a4 4 0 00-2.8 2.8L12 21l-1.6-4.6a4 4 0 00-2.8-2.8L3 12l4.6-1.6a4 4 0 002.8-2.8z" />
   ),
+  menu: <path d="M4 6h16M4 12h16M4 18h16" />,
+  close: <path d="M6 6l12 12M18 6L6 18" />,
+  code: <path d="M8 9l-3 3 3 3M16 9l3 3-3 3M13.5 6l-3 12" />,
+  shield: (
+    <>
+      <path d="M12 3l7 3v5c0 4.5-3 7.7-7 9-4-1.3-7-4.5-7-9V6z" />
+      <path d="M9 12l2 2 4-4" />
+    </>
+  ),
 };
 
 export type IconName = keyof typeof PATHS;

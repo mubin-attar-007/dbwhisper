@@ -5,6 +5,7 @@ import { saveVerifiedPair, type QueryResponse } from "@/src/lib/api";
 import { CopyButton } from "./CopyButton";
 import { ResultChart } from "./ResultChart";
 import { ResultsTable } from "./ResultsTable";
+import { SqlCode } from "./SqlCode";
 import { useWorkspace } from "./WorkspaceProvider";
 
 function ValidationBadge({ passed }: { passed: boolean | null }) {
@@ -75,7 +76,7 @@ export function ResultsPanel({
           className="group rounded-lg border border-slate-800 bg-slate-900/40"
         >
           <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-400 marker:content-none [&::-webkit-details-marker]:hidden">
-            <span className="text-slate-500 transition-transform group-open:rotate-90">
+            <span className="text-slate-400 transition-transform group-open:rotate-90">
               ▸
             </span>
             Generated SQL
@@ -147,19 +148,17 @@ export function ResultsPanel({
                   >
                     Cancel
                   </button>
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-slate-400">
                     Runs through the same read-only validator — writes are always rejected.
                   </span>
                 </div>
               </div>
             ) : (
-              <pre className="scrollbar-thin overflow-auto rounded-lg border border-slate-800 bg-slate-950/60 p-4 font-mono text-sm leading-relaxed text-slate-200">
-                <code>{sql}</code>
-              </pre>
+              <SqlCode code={sql} />
             )}
             {selectedTables.length > 0 && (
               <div className="space-y-1.5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                   Tables used
                 </p>
                 <div className="flex flex-wrap gap-2">

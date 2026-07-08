@@ -17,7 +17,7 @@ export function StagedProgress() {
         />
         <div>
           <p className="text-sm font-medium text-slate-200">Working on your query…</p>
-          <p className="mt-0.5 text-xs text-slate-500">
+          <p className="mt-0.5 text-xs text-slate-400">
             Understanding · selecting tables · generating SQL · running · preparing results
           </p>
         </div>

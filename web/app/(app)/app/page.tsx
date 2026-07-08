@@ -107,10 +107,10 @@ export default function ConsolePage() {
           onKeyDown={handleKeyDown}
           rows={4}
           placeholder="e.g. How many active customers signed up last month?"
-          className="scrollbar-thin w-full resize-y rounded-lg border border-slate-700 bg-slate-900/70 px-3.5 py-3 text-sm text-slate-100 shadow-sm placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="scrollbar-thin w-full resize-y rounded-lg border border-slate-700 bg-slate-900/70 px-3.5 py-3 text-sm text-slate-100 shadow-sm placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         />
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-400">
             <Kbd>Ctrl</Kbd>/<Kbd>⌘</Kbd> + <Kbd>Enter</Kbd> to run
           </p>
           <div className="flex gap-2">

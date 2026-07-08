@@ -22,7 +22,7 @@ export function ExportMenu({ data }: { data: QueryResultData }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-[11px] uppercase tracking-wide text-slate-500">Export</span>
+      <span className="text-[11px] uppercase tracking-wide text-slate-400">Export</span>
       <button type="button" onClick={() => exportCsv(data)} className={BTN}>
         CSV
       </button>

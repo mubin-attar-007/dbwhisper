@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { deleteVerifiedPair, listVerifiedPairs, type VerifiedPair } from "@/src/lib/api";
 import { Icon } from "../../../components/Icon";
+import { SqlCode } from "../../../components/SqlCode";
 import { useWorkspace } from "../../../components/WorkspaceProvider";
 
 export default function TrainingPage() {
@@ -52,7 +53,7 @@ export default function TrainingPage() {
       </p>
 
       <div className="mt-6 space-y-3">
-        {loading && <p className="text-sm text-slate-500">Loading…</p>}
+        {loading && <p className="text-sm text-slate-400">Loading…</p>}
         {error && <p className="text-sm text-rose-300">{error}</p>}
         {!loading && !error && pairs.length === 0 && (
           <div className="rounded-lg border border-dashed border-slate-700 bg-slate-900/40 p-6 text-center text-sm text-slate-400">
@@ -74,10 +75,8 @@ export default function TrainingPage() {
                 <Icon name="trash" className="h-4 w-4" />
               </button>
             </div>
-            <pre className="scrollbar-thin mt-2 overflow-x-auto rounded-md border border-slate-800 bg-slate-950/60 p-3 font-mono text-xs leading-relaxed text-slate-300">
-              <code>{p.sql}</code>
-            </pre>
-            <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-500">
+            <SqlCode code={p.sql} className="mt-2 p-3 text-xs" />
+            <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-400">
               <span className="rounded-full border border-slate-700 bg-slate-800/60 px-2 py-0.5 font-mono">
                 {p.db_flag}
               </span>

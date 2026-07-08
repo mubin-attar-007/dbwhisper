@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { HealthBadge } from "./HealthBadge";
 import { Icon } from "./Icon";
+import { MobileNav } from "./MobileNav";
 import { useWorkspace } from "./WorkspaceProvider";
 
 function DbSwitcher() {
@@ -58,12 +59,15 @@ export function AppTopBar() {
   const { newQuery } = useWorkspace();
   return (
     <header className="z-10 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-slate-800/80 bg-slate-950/80 px-3 backdrop-blur sm:px-4">
-      <Link
-        href="/"
-        className="rounded text-base font-bold tracking-tight text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
-      >
-        DB<span className="text-brand-fg">Whisper</span>
-      </Link>
+      <div className="flex items-center gap-1.5">
+        <MobileNav />
+        <Link
+          href="/"
+          className="rounded text-base font-bold tracking-tight text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+        >
+          DB<span className="text-brand-fg">Whisper</span>
+        </Link>
+      </div>
       <div className="flex items-center gap-2 sm:gap-3">
         <DbSwitcher />
         <button

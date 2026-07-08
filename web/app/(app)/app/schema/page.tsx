@@ -45,7 +45,7 @@ export default function SchemaPage() {
       </p>
 
       <div className="mt-6 space-y-3">
-        {loading && <p className="text-sm text-slate-500">Loading…</p>}
+        {loading && <p className="text-sm text-slate-400">Loading…</p>}
         {error && <p className="text-sm text-rose-300">{error}</p>}
         {!loading && !error && tables.length === 0 && (
           <div className="rounded-lg border border-dashed border-slate-700 bg-slate-900/40 p-6 text-center text-sm text-slate-400">
@@ -68,7 +68,7 @@ export default function SchemaPage() {
                   has FKs
                 </span>
               )}
-              <span className="text-[11px] text-slate-600">{t.columns.length} cols</span>
+              <span className="text-[11px] text-slate-400">{t.columns.length} cols</span>
             </div>
             {t.description && <p className="mt-1 text-xs text-slate-400">{t.description}</p>}
             <div className="mt-3 flex flex-wrap gap-1.5">
