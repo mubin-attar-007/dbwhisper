@@ -16,16 +16,16 @@ SQL before executing it against the target database.
 from __future__ import annotations
 
 # pylint: disable=duplicate-code
+import json
 import re
 from datetime import datetime
 from os import getenv
 from pathlib import Path
-from time import perf_counter
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
@@ -40,9 +40,13 @@ from app.agent.chain import (
     summarize_query_results,
 )
 from app.api.auth import router as auth_router
-from app.core import query_executor, result_formatter, sql_validator
-from app.core.config import get_settings
+from app.api.v2 import router as v2_router
+from app.core import result_formatter
+from app.core.config import Settings, get_settings
 from app.core.observability import init_sentry
+from app.execution.readonly import verify_read_only
+from app.execution.service import ExecutionRequest, ExecutionResult
+from app.execution.service import execute as execute_read_only
 from app.models import (
     DatabasesResponse,
     DatabaseSummary,
@@ -63,7 +67,17 @@ from app.models import (
     SchemaTable,
     VerifiedPair,
     VerifiedPairRequest,
+    VerifiedPairReviewRequest,
     VerifiedPairsResponse,
+)
+from app.observability import metrics as obs_metrics
+from app.observability.middleware import MetricsMiddleware
+from app.observability.otel import setup_tracing, shutdown_tracing
+from app.platform.audit import AuditAction, AuditOutcome
+from app.platform.connection_secrets import (
+    ConnectionSecretError,
+    prepare_for_storage,
+    read_connection_string,
 )
 from app.schema_pipeline import SchemaPipelineOrchestrator
 from app.schema_pipeline.embedding_pipeline import (
@@ -75,8 +89,9 @@ from app.security.auth import (
     require_api_key_if_enabled,
     resolve_enroll_owner,
 )
-from app.security.db_readonly_checker import is_read_only_connection
+from app.security.csrf import require_csrf
 from app.security.ratelimit import RateLimitMiddleware
+from app.sqlpolicy import Decision, Dialect
 from app.user_db_config_loader import PROJECT_ROOT, get_user_database_settings
 from app.utils.logger import sanitize_for_log as _sanitize
 from app.utils.logger import setup_logging
@@ -95,6 +110,7 @@ from db.verified_queries import (
     delete_verified_query,
     list_verified_queries,
     save_verified_query,
+    set_status,
 )
 
 # Initialize logging + optional Sentry (no-op unless SENTRY_DSN is set)
@@ -103,10 +119,39 @@ init_sentry()
 
 # Create FastAPI app
 app = FastAPI(
-    title="SQL Insight Agent",
-    description="Natural Language to SQL query agent powered by LangChain with provider fallback",
-    version="1.0.0",
+    title="DBWhisper",
+    description=(
+        "Ask a question in English, get an evidence-linked answer from your database. "
+        "Every generated statement is checked read-only by an AST policy engine before it runs."
+    ),
+    version="0.1.0",
 )
+
+# Records request count, status distribution and latency against the matched *route template*, so a
+# path carrying an id cannot mint a new time series per id.
+app.add_middleware(MetricsMiddleware)
+
+
+@app.on_event("startup")
+async def _start_observability() -> None:
+    """Start tracing and publish the running configuration. A no-op unless OTEL_ENABLED.
+
+    Deliberately never fatal: an unreachable collector is an operations problem, not a reason to
+    refuse to serve queries.
+    """
+    try:
+        status = setup_tracing(app)
+        logger.info("Startup: tracing %s.", status.value if hasattr(status, "value") else status)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("Startup tracing skipped: %s", exc)
+
+    try:
+        from app.platform.modes import resolve_mode
+        from app.sqlpolicy.rules import RULESET_VERSION
+
+        obs_metrics.set_build_info(mode=resolve_mode().value, policy_version=RULESET_VERSION)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("Startup build info skipped: %s", exc)
 
 
 @app.on_event("startup")
@@ -118,10 +163,50 @@ async def _ensure_project_schema() -> None:
     500-ing ``/query``. Never fatal — the underlying call is internally guarded.
     """
     try:
-        create_metadata_tables(get_project_db_connection_string())
+        connection = get_project_db_connection_string()
+        create_metadata_tables(connection)
         logger.info("Startup: project metadata schema ensured.")
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning("Startup schema ensure skipped: %s", exc)
+        return
+
+    # Move any legacy plaintext connection strings into the encrypted column. Only runs when a key
+    # is configured; without one the rows are left as they are and the warning at write time stands.
+    if get_settings().secret_keys_list:
+        try:
+            from app.platform.connection_secrets import encrypt_existing_rows
+
+            session = get_session(connection)
+            try:
+                moved = encrypt_existing_rows(session)
+            finally:
+                session.close()
+            if moved:
+                logger.info("Startup: encrypted %d stored connection string(s).", moved)
+        except Exception as exc:  # pragma: no cover - never fatal
+            logger.warning("Startup secret encryption skipped: %s", exc)
+
+
+@app.on_event("shutdown")
+async def _release_target_connections() -> None:
+    """Close the pooled connections to enrolled target databases.
+
+    Each enrolled source keeps a small bounded pool. Without this, a reload or a rolling restart
+    leaves those sockets open on the customer's database until it times them out itself, which on a
+    small connection limit is the difference between a clean restart and an outage.
+    """
+    try:
+        from app.execution.connections import dispose_all
+
+        dispose_all()
+        logger.info("Shutdown: target database pools disposed.")
+    except Exception as exc:  # pragma: no cover - shutdown must not raise
+        logger.warning("Shutdown pool disposal skipped: %s", exc)
+
+    try:
+        shutdown_tracing()
+    except Exception as exc:  # pragma: no cover - shutdown must not raise
+        logger.warning("Shutdown tracing flush skipped: %s", exc)
 
 
 # Dev-only static UI (chat page)
@@ -168,6 +253,10 @@ if _settings.is_production and _cors_origins == ["*"]:
 # Authentication routes (/auth/register, /login, /logout, /me): public + rate-limited,
 # session-cookie based. Adding them changes nothing for existing endpoints.
 app.include_router(auth_router)
+
+# The v2 pipeline: the LangGraph workflow, human-in-the-loop interrupts, evidence and traces.
+# v1 routes keep their contract; nothing below changes how /query behaves.
+app.include_router(v2_router)
 
 
 # Models moved to `app.models` for reusability and readability
@@ -240,6 +329,21 @@ async def health_check():
     return HealthResponse()
 
 
+@app.get("/metrics", include_in_schema=False)
+async def metrics_endpoint() -> Response:
+    """Prometheus exposition for the scrape job in ``ops/``.
+
+    Off by a single setting rather than by removing the route, so a deployment that does not want
+    to expose metrics returns an honest 404 instead of an empty body that looks like a working
+    scrape target. The registry is dedicated and every label passes a cardinality guard, so this
+    cannot leak a question, a row, or a connection string.
+    """
+    if not get_settings().metrics_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Metrics are disabled.")
+    payload, content_type = obs_metrics.render()
+    return Response(content=payload, media_type=content_type)
+
+
 @app.get("/ready")
 async def readiness_check() -> JSONResponse:
     """Readiness probe — verifies the project Postgres is reachable and pgvector is installed."""
@@ -265,6 +369,174 @@ async def readiness_check() -> JSONResponse:
     return JSONResponse(status_code=200 if ok else 503, content={"ready": ok, "checks": checks})
 
 
+SUMMARY_SAMPLE_ROWS = 20
+SUMMARY_SAMPLE_CHARS = 2000
+_LLM_TAG = re.compile(r"<think[\s\S]*?>[\s\S]*?</think>|<[^>]+>", re.IGNORECASE)
+
+
+def _clean_summary(text: str | None, max_lines: int = 3) -> str | None:
+    """Strip model scaffolding tags and keep the summary to a few lines."""
+    if not text:
+        return None
+    cleaned = _LLM_TAG.sub("", text).strip()
+    lines = [line.strip() for line in cleaned.splitlines() if line.strip()]
+    if not lines:
+        return None
+    return " ".join(lines[:max_lines])
+
+
+def _network_policy_for(settings: Settings) -> tuple[object, list[str], list[str]]:
+    """Network level, allowlist and bundled hosts for the active application mode."""
+    policy = settings.mode_policy
+    bundled = [h for h in (settings.network_allowlist_list or []) if h]
+    return policy.network_policy, settings.network_allowlist_list, bundled
+
+
+def _run_read_only(
+    sql: str,
+    db_flag: str,
+    db_config: dict[str, Any],
+    *,
+    page: int | None,
+    page_size: int | None,
+    include_total: bool | None,
+) -> ExecutionResult:
+    """Send one statement through the single execution path (policy -> network -> read-only run)."""
+    settings = get_settings()
+    level, allowlist, bundled = _network_policy_for(settings)
+    resolved_include_total = (
+        include_total if include_total is not None else bool(page and page_size)
+    )
+    return execute_read_only(
+        ExecutionRequest(
+            sql=sql,
+            connection_string=str(db_config["connection_string"]),
+            dialect=Dialect.from_db_type(db_config.get("db_type")),
+            db_flag=db_flag,
+            max_rows=int(db_config.get("max_rows", 1000)),
+            timeout_seconds=int(db_config.get("query_timeout", 30)),
+            page=page,
+            page_size=page_size,
+            include_total=resolved_include_total,
+            network_level=level,
+            network_allowlist=allowlist,
+            bundled_hosts=bundled,
+        )
+    )
+
+
+def _metadata_from(result: ExecutionResult) -> ExecutionMetadata:
+    policy = result.policy
+    frame = result.frame
+    return ExecutionMetadata(
+        execution_time_ms=frame.duration_ms if frame else None,
+        total_rows=(frame.total_rows if frame and frame.total_rows is not None else None),
+        policy_version=policy.policy_version if policy else None,
+        policy_decision=policy.decision.value if policy else None,
+        sql_fingerprint=policy.fingerprint if policy else None,
+        tables_used=[str(t) for t in policy.tables] if policy and policy.tables else None,
+        truncated=frame.truncated if frame else None,
+        read_only_enforced=result.read_only_enforced if result.success else None,
+        error_category=result.error_category,
+    )
+
+
+def _response_from(
+    result: ExecutionResult,
+    sql: str,
+    output_format: str,
+    *,
+    selected_tables: list[str] | None = None,
+    follow_up_questions: list[str] | None = None,
+    natural_summary: str | None = None,
+    db_flag: str | None = None,
+    http_request: Request | None = None,
+) -> QueryResponse:
+    """Build the API response from an execution result, success or failure."""
+    metadata = _metadata_from(result)
+    if not result.success:
+        # A policy refusal is reported as validation_passed=False; anything later (network, the
+        # database itself) passed validation but did not produce rows.
+        validation_passed = bool(result.policy and result.policy.decision is not Decision.DENY)
+        return QueryResponse(
+            status="error",
+            sql=sql,
+            validation_passed=validation_passed,
+            data=None,
+            error=result.error,
+            selected_tables=selected_tables or None,
+            follow_up_questions=follow_up_questions,
+            metadata=metadata,
+        )
+
+    formatted = result_formatter.format_frame(
+        result.frame, sql=sql, output_format=output_format, stats=result.stats
+    )
+
+    # Gated on CSV rather than fired on every query: a download is the event worth reviewing, and
+    # auditing every read would bury it. `cells_neutralized` being non-zero on a table that has
+    # never had one is itself a signal.
+    if output_format == "csv" and result.frame is not None:
+        payload = formatted.get("data") or {}
+        _audit(
+            AuditAction.DATA_EXPORTED,
+            subject=db_flag or "unknown",
+            outcome=AuditOutcome.SUCCESS,
+            request=http_request,
+            user_id=_resolve_owner(http_request) if http_request is not None else None,
+            detail={
+                "row_count": result.frame.row_count,
+                "truncated": result.frame.truncated,
+                "cells_neutralized": payload.get("cells_neutralized", 0),
+            },
+        )
+
+    return QueryResponse(
+        status="success",
+        sql=sql,
+        validation_passed=True,
+        data=formatted["data"],
+        error=None,
+        selected_tables=selected_tables or None,
+        follow_up_questions=follow_up_questions,
+        metadata=metadata,
+        natural_summary=natural_summary,
+    )
+
+
+def _audit(
+    action: AuditAction,
+    *,
+    subject: str,
+    outcome: AuditOutcome,
+    request: Request | None = None,
+    user_id: int | None = None,
+    reason: str = "",
+    detail: dict[str, Any] | None = None,
+) -> None:
+    """Record a security-relevant event, deriving the actor from the request.
+
+    Never raises: an audit sink failure must not turn a denial into an allow, nor a successful
+    request into a 500.
+    """
+    from app.platform.audit import ActorKind, AuditActor, record
+
+    kind = ActorKind.USER if user_id is not None else ActorKind.ANONYMOUS
+    client = getattr(request, "client", None) if request is not None else None
+    record(
+        action,
+        subject=subject,
+        outcome=outcome,
+        actor=AuditActor(
+            kind=kind,
+            id=str(user_id) if user_id is not None else None,
+            ip=getattr(client, "host", None),
+        ),
+        reason=reason,
+        detail=detail or {},
+    )
+
+
 def _enforce_db_access(http_request: Request, db_flag: str) -> None:
     """Tenancy gate, active only when ``user_auth_enabled``.
 
@@ -280,6 +552,16 @@ def _enforce_db_access(http_request: Request, db_flag: str) -> None:
     user = get_current_user(http_request)
     user_id = user.id if user else None
     if not user_can_access_db_flag(db_flag, user_id):
+        # Audited: one tenant reaching for another's data is the event an incident review needs,
+        # and a 403 alone leaves no record of who asked for what.
+        _audit(
+            AuditAction.TENANT_ACCESS_DENIED,
+            subject=db_flag,
+            outcome=AuditOutcome.DENIED,
+            request=http_request,
+            user_id=user_id,
+            reason="the caller does not own this data source",
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this database.",
@@ -344,11 +626,9 @@ async def list_databases(http_request: Request) -> DatabasesResponse:
 @app.post(
     "/training/pairs",
     response_model=VerifiedPair,
-    dependencies=[Depends(require_api_key_if_enabled)],
+    dependencies=[Depends(require_api_key_if_enabled), Depends(require_csrf)],
 )
-async def save_training_pair(
-    request: VerifiedPairRequest, http_request: Request
-) -> VerifiedPair:
+async def save_training_pair(request: VerifiedPairRequest, http_request: Request) -> VerifiedPair:
     """Save a human-approved question -> SQL pair. The SQL must be read-only (validated here)."""
     _enforce_db_access(http_request, request.db_flag)
     try:
@@ -373,9 +653,39 @@ async def list_training_pairs(
     return VerifiedPairsResponse(pairs=[VerifiedPair(**p) for p in pairs])
 
 
+@app.post(
+    "/training/pairs/{pair_id}/review",
+    response_model=VerifiedPair,
+    dependencies=[Depends(require_api_key_if_enabled), Depends(require_csrf)],
+)
+async def review_training_pair(
+    pair_id: int, request: VerifiedPairReviewRequest, http_request: Request
+) -> VerifiedPair:
+    """Move a pair through its lifecycle.
+
+    The common use is re-approving a pair that schema drift marked ``stale``: enrollment retires it
+    automatically, and a human puts it back into circulation once they have checked the SQL still
+    answers the question against the new schema. Approving re-embeds it; anything else removes it
+    from the retrieval index so it stops being reachable, not merely relabelled.
+    """
+    pair = set_status(
+        pair_id,
+        _resolve_owner(http_request),
+        request.status,
+        reason=request.reason,
+        reviewer=request.reviewer,
+    )
+    if pair is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Verified pair not found."
+        )
+    _enforce_db_access(http_request, pair["db_flag"])
+    return VerifiedPair(**pair)
+
+
 @app.delete(
     "/training/pairs/{pair_id}",
-    dependencies=[Depends(require_api_key_if_enabled)],
+    dependencies=[Depends(require_api_key_if_enabled), Depends(require_csrf)],
 )
 async def delete_training_pair(pair_id: int, http_request: Request) -> dict[str, bool]:
     if not delete_verified_query(pair_id, _resolve_owner(http_request)):
@@ -395,9 +705,7 @@ async def get_schema(db_flag: str, http_request: Request) -> SchemaResponse:
     _enforce_db_access(http_request, db_flag)
     import yaml
 
-    index_path = (
-        Path(PROJECT_ROOT) / "database_schemas" / db_flag / "schema" / "schema_index.yaml"
-    )
+    index_path = Path(PROJECT_ROOT) / "database_schemas" / db_flag / "schema" / "schema_index.yaml"
     if not index_path.exists():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -422,33 +730,21 @@ async def get_schema(db_flag: str, http_request: Request) -> SchemaResponse:
         )
         for t in (data.get("tables") or [])
     ]
-    return SchemaResponse(
-        db_flag=db_flag, database_name=data.get("database_name"), tables=tables
-    )
+    return SchemaResponse(db_flag=db_flag, database_name=data.get("database_name"), tables=tables)
 
 
 @app.post(
     "/run_sql",
     response_model=QueryResponse,
-    dependencies=[Depends(require_api_key_if_enabled)],
+    dependencies=[Depends(require_api_key_if_enabled), Depends(require_csrf)],
 )
 async def run_sql(request: RunSqlRequest, http_request: Request) -> QueryResponse:
     """Execute user-provided (edited) SQL, bypassing LLM generation.
 
-    The SQL is routed through the SAME read-only validator + executor as generated SQL, so the
-    read-only guarantee holds regardless of what the user typed. Powers "Edit & run" in the UI.
+    The SQL goes through the SAME execution service as generated SQL - AST policy engine, network
+    policy, read-only session, row cap - so editing the query cannot widen what it may do.
     """
     _enforce_db_access(http_request, request.db_flag)
-
-    validation = sql_validator.validate_sql(request.sql, db_flag=request.db_flag)
-    if not validation.get("valid"):
-        return QueryResponse(
-            status="error",
-            sql=request.sql,
-            validation_passed=False,
-            error=validation.get("reason"),
-            metadata=ExecutionMetadata(execution_time_ms=None, total_rows=None),
-        )
 
     try:
         db_settings = get_user_database_settings(request.db_flag)
@@ -456,70 +752,34 @@ async def run_sql(request: RunSqlRequest, http_request: Request) -> QueryRespons
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown database: {exc!s}"
         ) from exc
-    db_config = db_settings.model_dump()
 
-    exec_start = perf_counter()
-    execution = query_executor.execute_query(
+    result = _run_read_only(
         request.sql,
-        db_config,
-        db_flag=request.db_flag,
+        request.db_flag,
+        db_settings.model_dump(),
         page=request.page,
         page_size=request.page_size,
-        include_total=(
-            request.include_total
-            if request.include_total is not None
-            else bool(request.page and request.page_size)
-        ),
+        include_total=request.include_total,
     )
-    elapsed_ms = (perf_counter() - exec_start) * 1000
-
-    if not execution.get("success"):
-        return QueryResponse(
-            status="error",
-            sql=request.sql,
-            validation_passed=True,
-            error=execution.get("error"),
-            metadata=ExecutionMetadata(execution_time_ms=elapsed_ms, total_rows=None),
+    if not result.success:
+        logger.info(
+            "run_sql refused or failed (%s): %s",
+            result.error_category,
+            _sanitize(result.error, max_len=300),
         )
-
-    formatted = result_formatter.format_results(
-        dataframe=execution.get("dataframe"),
-        sql=request.sql,
-        output_format=request.output_format,
-        execution_time_ms=elapsed_ms,
-        page=execution.get("page"),
-        page_size=execution.get("page_size"),
-        has_next=execution.get("has_next"),
-        total_rows=execution.get("total_rows"),
-    )
-    if formatted.get("status") != "success":
-        return QueryResponse(
-            status="error",
-            sql=request.sql,
-            validation_passed=True,
-            error=formatted.get("message", "Failed to format results"),
-            metadata=ExecutionMetadata(execution_time_ms=elapsed_ms, total_rows=None),
-        )
-
-    return QueryResponse(
-        status="success",
-        sql=request.sql,
-        validation_passed=True,
-        data=formatted.get("data"),
-        selected_tables=None,
-        follow_up_questions=None,
-        metadata=ExecutionMetadata(
-            execution_time_ms=elapsed_ms,
-            total_rows=execution.get("total_rows"),
-        ),
-        natural_summary=None,
+    return _response_from(
+        result,
+        request.sql,
+        request.output_format,
+        db_flag=request.db_flag,
+        http_request=http_request,
     )
 
 
 @app.post(
     "/query",
     response_model=QueryResponse,
-    dependencies=[Depends(require_api_key_if_enabled)],
+    dependencies=[Depends(require_api_key_if_enabled), Depends(require_csrf)],
 )
 async def execute_query(request: QueryRequest, http_request: Request) -> QueryResponse:
     """Execute a natural language SQL query.
@@ -588,6 +848,7 @@ async def execute_query(request: QueryRequest, http_request: Request) -> QueryRe
                         user_id=request.user_id,
                         session_id=request.session_id,
                         db_type=db_config.get("db_type"),
+                        db_description=db_config.get("description"),
                     )
                     logger.debug(
                         f"Using context-aware agent for user={request.user_id}, session={request.session_id}"
@@ -595,7 +856,10 @@ async def execute_query(request: QueryRequest, http_request: Request) -> QueryRe
                 else:
                     # Use stateless agent (backward compatible)
                     agent = get_cached_agent(
-                        provider, request.db_flag, db_type=db_config.get("db_type")
+                        provider,
+                        request.db_flag,
+                        db_type=db_config.get("db_type"),
+                        db_description=db_config.get("description"),
                     )
                     logger.debug("Using stateless agent (no user/session context)")
 
@@ -683,159 +947,54 @@ async def execute_query(request: QueryRequest, http_request: Request) -> QueryRe
                 detail="Agent returned empty SQL output",
             )
 
-        validation_result = sql_validator.validate_sql(sql_generated, db_flag=request.db_flag)
-        validation_ok = validation_result.get("valid", False)
-        logger.info(
-            "Validated SQL (masked): %s (valid=%s, reason=%s)",
-            _sanitize(sql_generated, max_len=1000),
-            validation_ok,
-            _sanitize(validation_result.get("reason")),
-        )
-        if not validation_ok:
-            logger.warning("SQL validation failed: %s", validation_result.get("reason"))
-            return QueryResponse(
-                status="error",
-                sql=sql_generated,
-                validation_passed=False,
-                data=None,
-                error=validation_result.get("reason"),
-                selected_tables=selected_tables or None,
-                follow_up_questions=follow_up_questions,
-                metadata=ExecutionMetadata(
-                    execution_time_ms=None,
-                    total_rows=None,
-                ),
-            )
-
-        exec_start = perf_counter()
-        # Pagination and page size handling
-        page = request.page
-        page_size = request.page_size
-        logger.debug(
-            "Executing SQL with pagination page=%s page_size=%s",
-            _sanitize(page),
-            _sanitize(page_size),
-        )
-        # Only default to including total rows when both page and page_size are provided
-        include_total_count = (
-            request.include_total if request.include_total is not None else bool(page and page_size)
-        )
-        execution = query_executor.execute_query(
+        # One path to the database: policy engine -> network policy -> read-only session.
+        result = _run_read_only(
             sql_generated,
+            request.db_flag,
             db_config,
-            db_flag=request.db_flag,
-            page=page,
-            page_size=page_size,
-            include_total=include_total_count,
+            page=request.page,
+            page_size=request.page_size,
+            include_total=request.include_total,
         )
-        elapsed_ms = (perf_counter() - exec_start) * 1000
-        if not execution.get("success"):
-            logger.error("SQL execution failed: %s", _sanitize(execution.get("error")))
-            return QueryResponse(
-                status="error",
-                sql=sql_generated,
-                validation_passed=True,
-                data=None,
-                error=execution.get("error"),
-                selected_tables=selected_tables or None,
+        if not result.success:
+            logger.info(
+                "Query refused or failed (%s): %s",
+                result.error_category,
+                _sanitize(result.error, max_len=300),
+            )
+            return _response_from(
+                result,
+                sql_generated,
+                request.output_format,
+                selected_tables=selected_tables,
                 follow_up_questions=follow_up_questions,
-                metadata=ExecutionMetadata(
-                    execution_time_ms=elapsed_ms,
-                    total_rows=None,
-                ),
+                db_flag=request.db_flag,
+                http_request=http_request,
             )
 
-        dataframe = execution.get("dataframe")
-        formatted = result_formatter.format_results(
-            dataframe=dataframe,
-            sql=sql_generated,
-            output_format=request.output_format,
-            execution_time_ms=elapsed_ms,
-            page=execution.get("page"),
-            page_size=execution.get("page_size"),
-            has_next=execution.get("has_next"),
-            total_rows=execution.get("total_rows"),
-        )
-
-        if formatted.get("status") != "success":
-            logger.error("Result formatting failed: %s", _sanitize(formatted.get("message")))
-            return QueryResponse(
-                status="error",
-                sql=sql_generated,
-                validation_passed=True,
-                data=None,
-                error=formatted.get("message", "Failed to format results"),
-                selected_tables=selected_tables or None,
-                follow_up_questions=follow_up_questions,
-                metadata=ExecutionMetadata(
-                    execution_time_ms=elapsed_ms,
-                    total_rows=None,
-                ),
-            )
-
-        total_rows_raw = (
-            formatted.get("data", {}).get("row_count") if formatted.get("data") else None
-        )
-        total_rows: int | None = None
-        if total_rows_raw is not None:
-            try:
-                # Handle floats, strings, numpy types, etc.
-                total_rows_int = int(float(total_rows_raw))
-                if total_rows_int >= 0:
-                    total_rows = total_rows_int
-            except (TypeError, ValueError):
-                logger.debug(
-                    "Unable to coerce row_count=%r (%s) to int",
-                    total_rows_raw,
-                    type(total_rows_raw),
-                )
-                total_rows = None
-
+        elapsed_ms = result.frame.duration_ms or 0.0
         logger.info(
-            "Query execution completed: rows=%s elapsed_ms=%.1f",
-            total_rows,
+            "Query execution completed: rows=%s truncated=%s elapsed_ms=%.1f",
+            result.frame.row_count,
+            result.frame.truncated,
             elapsed_ms,
         )
 
-        result_data = formatted.get("data") or {}
         natural_summary = None
         if successful_provider:
-            describe_text = result_data.get("describe_text", "")
-            raw_json = result_data.get("raw_json", "")
-            # Mask SQL literals and limit JSON size before sending to LLM or logging
-            _masked_raw_json = _sanitize(raw_json, max_len=1000)
-            natural_summary = summarize_query_results(
-                successful_provider, describe_text, _masked_raw_json
+            # The summary model sees deterministic statistics and a bounded, masked row sample -
+            # never the full result set (see docs/v2/TARGET_ARCHITECTURE.md, grounded summaries).
+            sample = json.dumps(
+                (result.frame.to_records() if result.frame else [])[:SUMMARY_SAMPLE_ROWS],
+                default=str,
             )
-            if natural_summary:
-                # Ensure summary is short: at most 3 non-empty lines
-                def _truncate_lines(summary: str, max_lines: int = 3) -> str:
-                    if not summary:
-                        return summary
-                    lines = [ln.strip() for ln in summary.splitlines() if ln.strip()]
-                    if len(lines) <= max_lines:
-                        return summary
-                    # Join into a compact paragraph up to max_lines lines to avoid overly long text
-                    return " ".join(lines[:max_lines])
-
-                natural_summary = _truncate_lines(natural_summary, max_lines=3)
-                logger.debug(
-                    "Natural summary generated: %s", _sanitize(natural_summary, max_len=800)
-                )
-                # Remove any LLM internal tokens (e.g., <think>...</think>) and generic tags
-                import re
-
-                def _strip_llm_tokens(txt: str) -> str:
-                    if not txt:
-                        return txt
-                    # Remove <think>...</think> specifically
-                    txt = re.sub(r"<think[\s\S]*?>[\s\S]*?<\/think>", "", txt, flags=re.IGNORECASE)
-                    # Remove any remaining angle-bracketed tokens like <...>
-                    txt = re.sub(r"<[^>]+>", "", txt)
-                    return txt.strip()
-
-                natural_summary = _strip_llm_tokens(natural_summary)
-            else:
+            natural_summary = summarize_query_results(
+                successful_provider,
+                result.stats.describe_text() if result.stats else "",
+                _sanitize(sample, max_len=SUMMARY_SAMPLE_CHARS),
+            )
+            natural_summary = _clean_summary(natural_summary)
+            if not natural_summary:
                 logger.debug("No natural summary generated")
 
         # Store query context in conversation history if user_id and session_id provided
@@ -886,19 +1045,15 @@ async def execute_query(request: QueryRequest, http_request: Request) -> QueryRe
                 _sanitize(request.session_id),
             )
 
-        return QueryResponse(
-            status="success",
-            sql=sql_generated,
-            validation_passed=True,
-            data=formatted.get("data"),
-            error=None,
-            selected_tables=selected_tables or None,
+        return _response_from(
+            result,
+            sql_generated,
+            request.output_format,
+            selected_tables=selected_tables,
             follow_up_questions=follow_up_questions,
-            metadata=ExecutionMetadata(
-                execution_time_ms=elapsed_ms,
-                total_rows=total_rows,
-            ),
             natural_summary=natural_summary,
+            db_flag=request.db_flag,
+            http_request=http_request,
         )
 
     except ValueError as e:
@@ -920,7 +1075,7 @@ async def execute_query(request: QueryRequest, http_request: Request) -> QueryRe
 @app.post(
     "/schemas/embeddings",
     response_model=SchemaEmbeddingResponse,
-    dependencies=[Depends(require_api_key)],
+    dependencies=[Depends(require_api_key), Depends(require_csrf)],
 )
 async def generate_schema_embeddings(request: SchemaEmbeddingRequest) -> SchemaEmbeddingResponse:
     """Convert every schema YAML into embeddings stored in Postgres."""
@@ -973,6 +1128,7 @@ async def generate_schema_embeddings(request: SchemaEmbeddingRequest) -> SchemaE
 @app.post(
     "/schemas/enroll",
     response_model=SchemaPipelineResponse,
+    dependencies=[Depends(require_csrf)],
 )
 async def enroll_database(
     request: SchemaPipelineRequest,
@@ -986,23 +1142,35 @@ async def enroll_database(
         project_connection = get_project_db_connection_string()
         create_metadata_tables(project_connection)
         db_row = _fetch_or_create_database_config(request, project_connection, owner_id=owner_id)
-        # Validate connection read-only status — reject writable connections (fail closed).
-        read_only_ok = True
-        read_only_msg = ""
+        # Verify the credential cannot write, and fail CLOSED when that cannot be established.
+        # The previous version initialised this to True and left it True when the probe raised,
+        # so a connection whose privileges could not be read was enrolled as if it were safe.
         try:
-            read_only_ok, read_only_msg = is_read_only_connection(
-                db_row.connection_string, db_type=request.db_type
+            resolved = read_connection_string(
+                secret=db_row.connection_secret, plaintext=db_row.connection_string
             )
+            report = verify_read_only(resolved, request.db_type)
+            read_only_ok = report.is_safe
+            read_only_msg = f"{report.status.value}: {report.message}"
         except Exception as check_exc:
-            # The check itself failed (e.g. transient/unsupported) — log and continue.
+            read_only_ok = False
+            read_only_msg = f"the privilege check itself failed ({type(check_exc).__name__})"
             logger.warning(
-                "Failed to validate read-only status for db_flag=%s: %s", request.db_flag, check_exc
+                "Read-only verification errored for db_flag=%s: %s", request.db_flag, check_exc
             )
         if not read_only_ok:
             logger.warning(
                 "Refusing to enroll db_flag=%s — connection appears writable: %s",
                 request.db_flag,
                 read_only_msg,
+            )
+            _audit(
+                AuditAction.CONNECTION_ENROLL_REFUSED,
+                subject=request.db_flag,
+                outcome=AuditOutcome.DENIED,
+                user_id=owner_id,
+                reason=read_only_msg,
+                detail={"dialect": request.db_type or "unknown"},
             )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -1012,6 +1180,9 @@ async def enroll_database(
                 ),
             )
 
+    except ConnectionSecretError as err:
+        # Misconfiguration, not a server fault: tell the operator exactly what to set.
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err)) from err
     except SQLAlchemyError as err:
         logger.error("DatabaseConfig check/insert failed: %s", err)
         raise HTTPException(
@@ -1136,7 +1307,22 @@ async def enroll_database(
                 message="Embedding stage was skipped",
             )
 
-            _mark_schema_extracted(request.db_flag)
+        # Runs on every successful enrollment. It used to sit inside the `else` above, so on the
+        # normal path (run_embeddings=True) the flag was never set: the "already enrolled" fast
+        # path could never trigger and every re-enroll repeated extraction, per-table LLM
+        # documentation and re-embedding.
+        _mark_schema_extracted(request.db_flag)
+
+        _audit(
+            AuditAction.CONNECTION_ENROLLED,
+            subject=request.db_flag,
+            outcome=AuditOutcome.SUCCESS,
+            user_id=owner_id,
+            detail={
+                "dialect": request.db_type or "unknown",
+                "tables": extraction_summary.tables_exported,
+            },
+        )
 
         report = _build_pipeline_report(extraction_summary, documentation_stage, embeddings_stage)
         return SchemaPipelineResponse(
@@ -1163,12 +1349,35 @@ def _fetch_or_create_database_config(
     try:
         db_row = session.query(DatabaseConfig).filter_by(db_flag=request.db_flag).first()
         if db_row:
+            # A db_flag belongs to whoever enrolled it. Handing the existing row back to any caller
+            # let one tenant re-run another tenant's pipeline against that tenant's credential -
+            # recorded as G-8 in docs/v2/THREAT_MODEL.md. A public row (owner_id NULL, e.g. the
+            # demo) stays shared on purpose; an owned one does not.
+            if db_row.owner_id is not None and db_row.owner_id != owner_id:
+                _audit(
+                    AuditAction.CONNECTION_ENROLL_REFUSED,
+                    subject=request.db_flag,
+                    outcome=AuditOutcome.DENIED,
+                    user_id=owner_id,
+                    reason="the identifier is already enrolled by another owner",
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This database identifier is already enrolled by another owner.",
+                )
             return db_row
 
+        stored = prepare_for_storage(
+            request.connection_string,
+            encryption_required=get_settings().mode_policy.secret_encryption_required,
+        )
         db_row = DatabaseConfig(
             db_flag=request.db_flag,
             db_type=request.db_type,
-            connection_string=request.connection_string,
+            # Plaintext only when the mode permits it and no key is configured; the column is
+            # NOT NULL, so an encrypted row stores a placeholder rather than the real DSN.
+            connection_string=stored.plaintext or "",
+            connection_secret=stored.secret,
             description=request.description,
             intro_template=request.intro_template,
             exclude_column_matches=request.exclude_column_matches,

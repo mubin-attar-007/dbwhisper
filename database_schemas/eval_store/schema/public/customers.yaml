@@ -1,0 +1,121 @@
+table_name: customers
+schema: public
+object_type: table
+description: The customers table serves as the central repository for all customer
+  information within the database, supporting sales, support, and marketing operations
+  by providing essential contact and demographic data.
+created_date: null
+modified_date: null
+columns:
+- name: id
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Unique numerical identifier assigned to each customer for internal
+    tracking and record-keeping.
+  keywords:
+  - customer ID
+  - account number
+  - unique identifier
+- name: name
+  type: text
+  sql_type: text
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Full name of the customer used for personalization in communications
+    and service interactions.
+  keywords:
+  - customer name
+  - full name
+  - client name
+- name: city
+  type: text
+  sql_type: text
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Geographic location of the customer used for regional reporting and
+    local market analysis.
+  keywords:
+  - customer location
+  - city
+  - geographic region
+- name: signup_date
+  type: text
+  sql_type: text
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Date when the customer first registered or opened an account, used
+    to measure acquisition trends and customer tenure.
+  keywords:
+  - registration date
+  - join date
+  - account creation date
+primary_key:
+  constraint_name: customers_pkey
+  columns:
+  - id
+  column_details:
+  - name: id
+    ordinal: 1
+    is_descending: false
+foreign_keys: []
+unique_constraints: []
+indexes: []
+check_constraints: []
+keywords:
+- account creation date
+- account number
+- city
+- client name
+- customer ID
+- customer location
+- customer name
+- full name
+- geographic region
+- join date
+relationships:
+  outgoing: []
+  incoming: []
+  many_to_many: []
+statistics:
+  total_columns: 4
+  nullable_columns: 0
+  computed_columns: 0
+  indexed_columns: 0

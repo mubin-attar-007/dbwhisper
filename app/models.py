@@ -241,10 +241,33 @@ class RunSqlRequest(BaseModel):
 
 
 class ExecutionMetadata(BaseModel):
-    """Metadata about query execution."""
+    """Metadata about query execution.
+
+    The v1 fields are unchanged; everything added for v2 is optional, so existing clients keep
+    working while new ones can show *why* a query was allowed, refused or truncated.
+    """
 
     execution_time_ms: float | None = Field(None, description="Execution time in milliseconds")
     total_rows: int | None = Field(None, description="Total rows returned")
+    policy_version: str | None = Field(None, description="SQL policy ruleset that judged the query")
+    policy_decision: str | None = Field(
+        None, description="allow | deny | needs_approval, from the AST policy engine"
+    )
+    sql_fingerprint: str | None = Field(
+        None, description="Literal-independent hash of the statement (approvals bind to this)"
+    )
+    tables_used: list[str] | None = Field(
+        None, description="Enrolled tables the statement actually referenced"
+    )
+    truncated: bool | None = Field(
+        None, description="Whether the row cap was reached, so more rows may exist"
+    )
+    read_only_enforced: bool | None = Field(
+        None, description="Whether the database itself enforced a read-only session"
+    )
+    error_category: str | None = Field(
+        None, description="Machine-readable failure class (policy, timeout, syntax, ...)"
+    )
 
     @field_validator("execution_time_ms", mode="before")
     def round_value(cls, v: any, info: ValidationInfo) -> float:
@@ -263,9 +286,13 @@ class QueryResultData(BaseModel):
     csv: str = Field(..., description="Full result set serialized as CSV")
     raw_json: str = Field(..., description="Full result set serialized as JSON")
     describe: dict[str, dict[str, Any]] = Field(
-        default_factory=dict, description="Describe() summary per column"
+        default_factory=dict, description="Deterministic per-column statistics"
     )
-    describe_text: str = Field("", description="Textual `describe()` output")
+    describe_text: str = Field("", description="Compact textual rendering of those statistics")
+    truncated: bool | None = Field(
+        None, description="True when the row cap was reached and more rows may exist"
+    )
+    row_limit: int | None = Field(None, description="Row cap applied to this result")
     # Pagination metadata
     page: int | None = Field(None, description="Current page number (1-indexed)")
     page_size: int | None = Field(None, description="Page size used to fetch results")
@@ -322,11 +349,37 @@ class VerifiedPairRequest(BaseModel):
 
 
 class VerifiedPair(BaseModel):
+    """A pair plus the provenance that makes "verified" mean something.
+
+    ``status`` and ``staleness_reason`` are the fields worth reading: a pair is approved *against a
+    schema*, and when that schema drifts the pair is moved to ``stale`` with the reason attached
+    rather than quietly continuing to be offered to the model.
+    """
+
     id: int
     db_flag: str
     question: str
     sql: str
     created_at: str | None = None
+    status: str = "approved"
+    snapshot_id: str | None = None
+    sql_fingerprint: str | None = None
+    tables: list[str] = Field(default_factory=list)
+    dialect: str | None = None
+    reviewer: str | None = None
+    reviewed_at: str | None = None
+    usage_count: int = 0
+    staleness_reason: str | None = None
+    prompt_version: str | None = None
+    model_profile: str | None = None
+
+
+class VerifiedPairReviewRequest(BaseModel):
+    """Move a pair through its lifecycle - typically re-approving one that drift made stale."""
+
+    status: Literal["draft", "approved", "rejected", "stale", "superseded", "needs_review"]
+    reason: str | None = Field(default=None, max_length=500)
+    reviewer: str | None = Field(default=None, max_length=200)
 
 
 class VerifiedPairsResponse(BaseModel):
@@ -378,8 +431,10 @@ class HealthResponse(BaseModel):
     """Health check response."""
 
     status: str = Field("healthy")
-    message: str = Field("SQL Insight Agent is running")
-    version: str = Field("1.0.0")
+    message: str = Field("DBWhisper API is running")
+    #: The project version, kept in step with pyproject.toml. It was "1.0.0" while the package
+    #: declared 0.1.0 — a version a caller cannot rely on is worse than no version at all.
+    version: str = Field("0.1.0")
 
 
 class SchemaPipelineRequest(BaseModel):

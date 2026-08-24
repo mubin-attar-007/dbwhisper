@@ -1,0 +1,14 @@
+{
+  "strict": [
+    3,
+    22
+  ],
+  "answer_correct": [
+    3,
+    22
+  ],
+  "fail_closed": [
+    4,
+    4
+  ]
+}

@@ -12,6 +12,7 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.platform.modes import AppMode, AppModePolicy, EgressPolicy, policy_for, resolve_mode
 from app.utils.logger import setup_logging
 
 logger = setup_logging(__name__)
@@ -29,6 +30,32 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8000
     app_env: str = "development"
+    # demo | self_hosted | production — see app.platform.modes. Falls back to APP_ENV mapping.
+    app_mode: str | None = None
+
+    # ─── Secrets at rest (comma-separated Fernet keys; first encrypts, all decrypt) ───
+    dbw_secret_keys: str | None = None
+
+    # ─── Local-first AI ───
+    ollama_base_url: str = "http://127.0.0.1:11434"
+    model_profile: str = (
+        "auto"  # auto | fake | local-small | local-balanced | local-quality | <remote>
+    )
+    embedding_profile: str = "auto"  # auto | fake | local-bge-small | google
+    egress_policy: str | None = None  # overrides the mode default (see EgressPolicy)
+
+    # ─── Network policy for target connections ───
+    network_allowlist: str | None = None  # comma-separated hosts / CIDRs permitted in strict mode
+    trust_proxy_headers: bool = False  # honour X-Forwarded-For only behind a trusted proxy
+
+    # ─── Observability ───
+    otel_enabled: bool = False
+    otel_exporter_otlp_endpoint: str | None = None
+    otel_service_name: str = "dbwhisper-api"
+    metrics_enabled: bool = True
+
+    # ─── Background worker ───
+    worker_poll_interval_seconds: float = 2.0
 
     # ─── Project database (conversation memory + pgvector) ───
     postgres_connection_string: str | None = None
@@ -57,6 +84,9 @@ class Settings(BaseSettings):
     user_auth_enabled: bool = False  # gate /query + /schemas/* behind login when True
     session_ttl_seconds: int = 1_209_600  # 14 days
     session_cookie_secure: bool | None = None  # None → secure in production
+    # None → enforced in production, opt-in in self-hosted, not applicable in demo
+    # (which has no login, therefore no ambient authority). See app/security/csrf.py.
+    csrf_enforced: bool | None = None
 
     # ─── Rate limiting (per-IP, in-memory token bucket; Upstash optional later) ───
     rate_limit_enabled: bool = True
@@ -109,10 +139,32 @@ class Settings(BaseSettings):
 
     @property
     def cookie_secure(self) -> bool:
-        """Session cookies are Secure in production unless explicitly overridden."""
+        """Session cookies are Secure in production/demo unless explicitly overridden."""
         if self.session_cookie_secure is None:
-            return self.is_production
+            return self.is_production or self.mode_policy.cookie_secure
         return self.session_cookie_secure
+
+    # ─── Application mode (typed policy; see app.platform.modes) ───
+    @property
+    def mode(self) -> AppMode:
+        return resolve_mode(self.app_mode, self.app_env)
+
+    @property
+    def mode_policy(self) -> AppModePolicy:
+        return policy_for(self.mode)
+
+    @property
+    def effective_egress_policy(self) -> EgressPolicy:
+        raw = (self.egress_policy or "").strip().upper()
+        return EgressPolicy(raw) if raw else self.mode_policy.default_egress_policy
+
+    @property
+    def secret_keys_list(self) -> list[str]:
+        return [k.strip() for k in (self.dbw_secret_keys or "").split(",") if k.strip()]
+
+    @property
+    def network_allowlist_list(self) -> list[str]:
+        return [h.strip() for h in (self.network_allowlist or "").split(",") if h.strip()]
 
 
 def _normalize_google_key(settings: Settings) -> None:

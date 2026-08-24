@@ -1,27 +1,67 @@
-# Keep the build context (and image) small.
+# What never enters the build context.
+#
+# Two separate reasons live in this file and they are worth keeping apart:
+#
+#   * SIZE - every byte here is uploaded to the daemon on every build and invalidates the cache when
+#     it changes. `.venv/` alone is larger than the finished image.
+#   * SAFETY - `.env` holds real credentials. It is excluded here as well as in `.gitignore`, because
+#     `COPY . .` in some future edit would otherwise bake them into a layer that survives deletion.
+#
+# Anything the runtime needs must NOT be listed here: `alembic.ini`, `app/`, `db/`, `scripts/`,
+# `database_schemas/`, `pyproject.toml`, `uv.lock` and `README.md` (pyproject references it) are all
+# copied by the Dockerfiles.
+
+# ── Environments and caches ──────────────────────────────────────────────────────────────────────
 .venv/
-.git/
-.github/
-__pycache__/
-*.pyc
+# Docker matches these against the whole path, so the `**/` prefix is required to catch nested
+# directories - `__pycache__/` alone only matches one at the context root.
+**/__pycache__/
+**/*.pyc
+**/*.pyo
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.hypothesis/
 .import_linter_cache/
-Log/
-Temp/
-temp_output/
-tests/
-web/
-docs/
+.coverage
+htmlcov/
+node_modules/
+
+# ── Version control and CI ───────────────────────────────────────────────────────────────────────
+.git/
+.github/
+.pre-commit-config.yaml
+.gitleaks.toml
+.editorconfig
 .vscode/
 .idea/
 
-# Secrets / local env (never bake into an image)
+# ── Not part of the runtime ──────────────────────────────────────────────────────────────────────
+tests/
+web/
+docs/
+ops/
+eval/
+evaluation/
+Log/
+Temp/
+temp_output/
+compose.yaml
+render.yaml
+*.log
+
+# ── Local databases and fixtures (rebuildable; some are large) ───────────────────────────────────
+**/*.sqlite
+**/*.sqlite3
+**/*.db
+!database_schemas/**
+
+# ── Secrets: never in a build context ────────────────────────────────────────────────────────────
 .env
 .env.*
 !.env.example
 
-# Docs & scratch (README.md is kept — HF Spaces reads its frontmatter)
+# ── Documents that are not the image's README ────────────────────────────────────────────────────
+# README.md is kept: pyproject.toml references it, and Hugging Face Spaces reads its frontmatter.
 ENHANCEMENT_PLAN.md
-*.log
+CHANGELOG.md

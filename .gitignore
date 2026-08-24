@@ -39,3 +39,10 @@ app/static/*.backup
 
 # NOTE: YAML is intentionally NOT ignored — schema_index/metadata/table specs under
 # database_schemas/, plus compose.yaml / render.yaml / CI workflows, must be committed.
+.coverage
+coverage.xml
+htmlcov/
+eval/spider/
+evaluation/data/external/
+*.sqlite
+!evaluation/data/**/*.sqlite

@@ -1,0 +1,205 @@
+# GENERATED FILE - do not edit by hand.
+# Written by app/evaluation/datasets/build.py for the synthetic evaluation dataset
+# 'retail' v1.0.0. Rebuild with:  uv run python -m app.evaluation.cli build
+# The database it describes contains fabricated data only.
+database_name: eval_retail
+extraction_date: generated:retail@1.0.0
+total_schemas: 1
+total_tables: 9
+total_views: 0
+generated_by: app.evaluation.datasets - synthetic evaluation fixture
+synthetic: true
+schemas:
+- name: main
+  table_count: 9
+  view_count: 0
+tables:
+- table: regions
+  schema: main
+  object_type: table
+  keywords:
+  - region
+  - geography
+  - territory
+  - country
+  column_names:
+  - region_id
+  - region_name
+  - country
+  primary_key:
+  - region_id
+  has_foreign_keys: false
+  short_description: Sales regions. One row per region; regions group customers by
+    geography.
+- table: customers
+  schema: main
+  object_type: table
+  keywords:
+  - customer
+  - account
+  - buyer
+  - segment
+  - signup
+  column_names:
+  - customer_id
+  - customer_name
+  - region_id
+  - signup_date
+  - segment
+  - is_active
+  primary_key:
+  - customer_id
+  has_foreign_keys: true
+  short_description: People and businesses that place orders. One row per customer,
+    with the region they belong to, the date they signed up and their segment.
+- table: products
+  schema: main
+  object_type: table
+  keywords:
+  - product
+  - item
+  - sku
+  - catalogue
+  - category
+  - price
+  column_names:
+  - product_id
+  - product_name
+  - category
+  - unit_cost
+  - list_price
+  - is_discontinued
+  primary_key:
+  - product_id
+  has_foreign_keys: false
+  short_description: Catalogue of items for sale, with a category, the cost to us
+    and the list price. List price is the sticker price; what a customer actually
+    paid is on the order line.
+- table: discounts
+  schema: main
+  object_type: table
+  keywords:
+  - discount
+  - promotion
+  - campaign
+  - markdown
+  - offer
+  column_names:
+  - discount_id
+  - product_id
+  - discount_pct
+  - starts_on
+  - ends_on
+  - campaign
+  primary_key:
+  - discount_id
+  has_foreign_keys: true
+  short_description: Time-boxed promotional discounts on a product. A discount applies
+    only between starts_on and ends_on inclusive.
+- table: orders
+  schema: main
+  object_type: table
+  keywords:
+  - order
+  - purchase
+  - sale
+  - transaction
+  - status
+  - channel
+  column_names:
+  - order_id
+  - customer_id
+  - order_date
+  - status
+  - channel
+  primary_key:
+  - order_id
+  has_foreign_keys: true
+  short_description: 'Order headers: who ordered, when, through which channel and
+    the fulfilment status. Cancelled orders still have rows and must be excluded from
+    revenue.'
+- table: order_items
+  schema: main
+  object_type: table
+  keywords:
+  - line item
+  - revenue
+  - quantity
+  - unit price
+  - basket
+  column_names:
+  - order_item_id
+  - order_id
+  - product_id
+  - quantity
+  - unit_price
+  primary_key:
+  - order_item_id
+  has_foreign_keys: true
+  short_description: One row per product on an order. Line revenue is quantity * unit_price;
+    unit_price is what was charged, which is below list price when a discount applied.
+- table: product_returns
+  schema: main
+  object_type: table
+  keywords:
+  - return
+  - refund
+  - rma
+  - chargeback
+  - reason
+  column_names:
+  - return_id
+  - order_item_id
+  - return_date
+  - reason
+  - refund_amount
+  primary_key:
+  - return_id
+  has_foreign_keys: true
+  short_description: Returned line items with the refund paid. A return points at
+    an order line, so a return is only reachable from an order through order_items.
+- table: inventory
+  schema: main
+  object_type: table
+  keywords:
+  - inventory
+  - stock
+  - on hand
+  - warehouse
+  - reorder
+  column_names:
+  - inventory_id
+  - product_id
+  - warehouse
+  - on_hand
+  - reorder_point
+  primary_key:
+  - inventory_id
+  has_foreign_keys: true
+  short_description: 'Current stock per product per warehouse. A snapshot with no
+    history: it says what is on hand now, never what was on hand last month.'
+- table: calendar_days
+  schema: main
+  object_type: table
+  keywords:
+  - calendar
+  - date
+  - month
+  - quarter
+  - year
+  - weekend
+  - period
+  column_names:
+  - calendar_date
+  - day_of_week
+  - month_name
+  - month_number
+  - quarter
+  - calendar_year
+  - is_weekend
+  primary_key:
+  - calendar_date
+  has_foreign_keys: false
+  short_description: One row per calendar date, with the month, quarter and fiscal
+    year it belongs to. Join to it when a question asks about a named period rather
+    than a date range.

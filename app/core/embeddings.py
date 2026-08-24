@@ -1,19 +1,13 @@
-"""Provider-agnostic embedding client factory.
+"""LangChain-compatible embedding client, backed by :mod:`app.embeddings`.
 
-The embedding provider is selected at runtime via the ``EMBEDDING_PROVIDER`` env var:
+``PGVector`` expects an object with ``embed_documents`` and ``embed_query`` returning plain lists.
+The v2 providers return a versioned :class:`~app.embeddings.base.EmbeddingResult` instead, because a
+bare list of floats cannot tell you which model produced it. This adapter bridges the two, and
+exposes the version so the caller can record it alongside whatever it stores.
 
-* ``google`` (default)  -- hosted Google Generative AI embeddings. No heavy local
-  dependencies, so the deployed image stays small and cold-starts quickly.
-* ``huggingface``       -- local/offline embeddings via ``langchain-huggingface``.
-  Requires the optional ``local-embeddings`` extra (``uv sync --extra local-embeddings``),
-  which pulls in ``torch`` + ``sentence-transformers``.
-
-Heavy imports are performed lazily *inside* the builders so that importing this module
-(and the wider app) never drags in ``torch`` unless the HuggingFace provider is used.
-
-IMPORTANT: embeddings are provider/model-specific. Vectors written under one provider
-are dimensionally incompatible with queries from another — re-enroll/re-embed schemas
-whenever ``EMBEDDING_PROVIDER`` or the model changes.
+Selection is controlled by ``EMBEDDING_PROFILE`` (``auto`` -> local CPU model, ``fake`` -> CI,
+``google`` -> hosted). The legacy ``EMBEDDING_PROVIDER`` variable is still honoured so existing
+deployments keep working, with a warning pointing at the replacement.
 """
 
 from __future__ import annotations
@@ -22,65 +16,99 @@ import os
 from threading import Lock
 from typing import Any
 
+from app.embeddings.base import EmbeddingVersion
+from app.embeddings.service import build_embedding_provider
 from app.utils.logger import setup_logging
 
 logger = setup_logging(__name__)
 
-DEFAULT_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "google").strip().lower()
-DEFAULT_GOOGLE_MODEL = os.getenv("GOOGLE_EMBEDDING_MODEL", "models/gemini-embedding-001")
-DEFAULT_HF_MODEL = os.getenv("EMBEDDING_MODEL_NAME", "jinaai/jina-embeddings-v3")
-
-_GOOGLE_ALIASES = {"google", "gemini", "googleai", "google-genai"}
-_HF_ALIASES = {"huggingface", "hf", "local", "sentence-transformers"}
+_LEGACY_PROVIDER_TO_PROFILE = {
+    "google": "google",
+    "gemini": "google",
+    "googleai": "google",
+    "google-genai": "google",
+    "huggingface": "auto",
+    "hf": "auto",
+    "local": "auto",
+    "sentence-transformers": "auto",
+    "fastembed": "auto",
+    "fake": "fake",
+}
 
 _lock = Lock()
 _instance: Any | None = None
 
 
-def _build_google_embeddings(model: str) -> Any:
-    """Construct a hosted Google Generative AI embedding client (lazy import)."""
-    from langchain_google_genai import GoogleGenerativeAIEmbeddings
+class EmbeddingClient:
+    """Adapter presenting a v2 provider through the interface LangChain stores expect."""
 
-    # langchain-google-genai reads GOOGLE_API_KEY; app.core.config aliases GEMINI_API_KEY.
-    return GoogleGenerativeAIEmbeddings(model=model)
+    def __init__(self, provider: Any) -> None:
+        self._provider = provider
 
+    @property
+    def version(self) -> EmbeddingVersion:
+        return self._provider.version
 
-def _build_huggingface_embeddings(model: str) -> Any:
-    """Construct a local HuggingFace embedding client (lazy import; needs torch)."""
-    try:
-        from langchain_huggingface import HuggingFaceEmbeddings
-    except ImportError as exc:  # pragma: no cover - depends on optional extra
-        raise RuntimeError(
-            "EMBEDDING_PROVIDER=huggingface requires the optional 'local-embeddings' "
-            "dependencies (torch, sentence-transformers). Install them with: "
-            "uv sync --extra local-embeddings"
-        ) from exc
+    @property
+    def provider_name(self) -> str:
+        return getattr(self._provider, "name", "unknown")
 
-    model_kwargs: dict[str, Any] = {"trust_remote_code": True}
-    dtype = os.getenv("HF_DTYPE") or os.getenv("HF_TORCH_DTYPE")
-    if dtype:
-        model_kwargs["dtype"] = dtype
-    return HuggingFaceEmbeddings(model_name=model, model_kwargs=model_kwargs)
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return self._provider.embed_documents(list(texts)).vectors
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._provider.embed_query(text)
+
+    def __repr__(self) -> str:  # pragma: no cover - debugging aid
+        return f"EmbeddingClient({self.version.key})"
 
 
-def build_embedding_client(provider: str | None = None) -> Any:
-    """Build a fresh embedding client for the given (or env-configured) provider."""
-    provider = (provider or DEFAULT_PROVIDER).strip().lower()
-    if provider in _GOOGLE_ALIASES:
-        logger.info("Initializing Google embeddings (model=%s)", DEFAULT_GOOGLE_MODEL)
-        return _build_google_embeddings(DEFAULT_GOOGLE_MODEL)
-    if provider in _HF_ALIASES:
-        logger.info("Initializing HuggingFace embeddings (model=%s)", DEFAULT_HF_MODEL)
-        return _build_huggingface_embeddings(DEFAULT_HF_MODEL)
-    raise ValueError(f"Unsupported EMBEDDING_PROVIDER '{provider}'. Use 'google' or 'huggingface'.")
+def resolve_profile(env: dict[str, str] | None = None) -> str:
+    """Work out the embedding profile, honouring the legacy variable with a deprecation notice."""
+    environment = env if env is not None else os.environ
+    profile = (environment.get("EMBEDDING_PROFILE") or "").strip().lower()
+    if profile:
+        return profile
+    legacy = (environment.get("EMBEDDING_PROVIDER") or "").strip().lower()
+    if legacy:
+        mapped = _LEGACY_PROVIDER_TO_PROFILE.get(legacy, "auto")
+        logger.warning(
+            "EMBEDDING_PROVIDER=%s is deprecated; use EMBEDDING_PROFILE=%s "
+            "(auto = local CPU model, no API key required).",
+            legacy,
+            mapped,
+        )
+        return mapped
+    return "auto"
 
 
-def get_embedding_client() -> Any:
-    """Return a process-wide cached embedding client."""
+def build_embedding_client(profile: str | None = None) -> EmbeddingClient:
+    """Build a fresh client for the given (or configured) profile."""
+    return EmbeddingClient(build_embedding_provider(profile or resolve_profile()))
+
+
+def get_embedding_client() -> EmbeddingClient:
+    """Process-wide cached client."""
     global _instance
     if _instance is not None:
         return _instance
     with _lock:
         if _instance is None:
             _instance = build_embedding_client()
+            logger.info("Embedding client ready: %s", _instance.version.key)
         return _instance
+
+
+def reset() -> None:
+    """Drop the cached client (tests, and after a configuration change)."""
+    global _instance
+    _instance = None
+
+
+__all__ = [
+    "EmbeddingClient",
+    "build_embedding_client",
+    "get_embedding_client",
+    "reset",
+    "resolve_profile",
+]

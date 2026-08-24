@@ -1,0 +1,23 @@
+# Grafana datasource provisioning. Fixed UIDs matter: the dashboard JSON in ops/grafana/dashboards
+# references datasources by UID, so a hand-created datasource with a random UID would leave every
+# panel unbound. Keep these two UIDs stable.
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: dbw-prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    jsonData:
+      timeInterval: 15s
+      httpMethod: POST
+
+  - name: Jaeger
+    uid: dbw-jaeger
+    type: jaeger
+    access: proxy
+    url: http://jaeger:16686
+    isDefault: false

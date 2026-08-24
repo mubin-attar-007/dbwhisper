@@ -1,0 +1,120 @@
+table_name: orders
+schema: public
+object_type: table
+description: The orders table serves as the central repository for tracking customer
+  orders within the system. It captures essential details such as order identifiers,
+  customer associations, order timestamps, and fulfillment statuses, enabling businesses
+  to manage order lifecycles and monitor sales activity.
+created_date: null
+modified_date: null
+columns:
+- name: id
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Unique numerical identifier assigned to each order for tracking and
+    reference purposes.
+  keywords:
+  - order ID
+  - unique identifier
+  - order number
+- name: customer_id
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Reference number linking the order to the associated customer account.
+  keywords:
+  - customer ID
+  - buyer identifier
+  - account number
+- name: order_date
+  type: text
+  sql_type: text
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Date and time when the order was placed, recorded as text for flexible
+    formatting.
+  keywords:
+  - order date
+  - purchase date
+  - transaction date
+- name: status
+  type: text
+  sql_type: text
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Current processing state of the order (e.g., pending, shipped, canceled).
+  keywords:
+  - order status
+  - fulfillment status
+  - current state
+primary_key:
+  constraint_name: orders_pkey
+  columns:
+  - id
+  column_details:
+  - name: id
+    ordinal: 1
+    is_descending: false
+foreign_keys: []
+unique_constraints: []
+indexes: []
+check_constraints: []
+keywords:
+- account number
+- buyer identifier
+- current state
+- customer ID
+- fulfillment status
+- order ID
+- order date
+- order number
+- order status
+- purchase date
+relationships:
+  outgoing: []
+  incoming: []
+  many_to_many: []
+statistics:
+  total_columns: 4
+  nullable_columns: 0
+  computed_columns: 0
+  indexed_columns: 0

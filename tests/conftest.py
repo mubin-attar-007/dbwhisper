@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import os
 
-os.environ.setdefault("EMBEDDING_PROVIDER", "google")
+# Deterministic, offline model + embedding providers: the suite never reaches the network.
+os.environ.setdefault("MODEL_PROFILE", "fake")
+os.environ.setdefault("EMBEDDING_PROFILE", "fake")
 os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault(
     "POSTGRES_CONNECTION_STRING",

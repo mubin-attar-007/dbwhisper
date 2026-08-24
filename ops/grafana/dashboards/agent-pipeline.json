@@ -1,0 +1,189 @@
+{
+  "uid": "dbw-agent-pipeline",
+  "title": "DBWhisper / Agent pipeline",
+  "description": "The question-to-answer path: retrieval, model calls, SQL policy, clarification and repair. Rates are computed in PromQL from counters rather than stored, so they aggregate correctly across replicas.",
+  "tags": ["dbwhisper", "agent"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "30s",
+  "time": { "from": "now-12h", "to": "now" },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Model call latency (p95) by provider and model",
+      "datasource": { "type": "prometheus", "uid": "dbw-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "s", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, provider, model) (rate(dbw_model_call_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{provider}} / {{model}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Token usage",
+      "description": "Absent for providers that do not report usage - a flat line here means 'not reported', not 'zero'.",
+      "datasource": { "type": "prometheus", "uid": "dbw-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (kind) (rate(dbw_model_tokens_total[5m]))",
+          "legendFormat": "{{kind}} tokens/s"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "SQL policy decisions",
+      "datasource": { "type": "prometheus", "uid": "dbw-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (decision) (rate(dbw_policy_decisions_total[5m]))",
+          "legendFormat": "{{decision}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "barchart",
+      "title": "Top blocking rules (15m)",
+      "description": "rule is the policy engine's rule_id, a code-defined identifier - never a message.",
+      "datasource": { "type": "prometheus", "uid": "dbw-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(5, sum by (rule) (increase(dbw_policy_decisions_total{decision=\"deny\"}[15m])))",
+          "legendFormat": "{{rule}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Clarification and repair rate",
+      "description": "Both are ratios against completed graph runs. A rising repair rate means generated SQL is failing validation more often.",
+      "datasource": { "type": "prometheus", "uid": "dbw-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(dbw_graph_clarifications_total[15m])) / sum(rate(dbw_graph_runs_total[15m]))",
+          "legendFormat": "clarification rate"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(dbw_query_repairs_total[15m])) / sum(rate(dbw_graph_runs_total[15m]))",
+          "legendFormat": "repair rate"
+        },
+        {
+          "refId": "C",
+          "expr": "sum(rate(dbw_graph_runs_total{outcome=\"failure\"}[15m])) / sum(rate(dbw_graph_runs_total[15m]))",
+          "legendFormat": "run failure rate"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Provider health",
+      "description": "Circuit state is 0 closed / 1 half-open / 2 open. A fallback is the router abandoning one provider for the next.",
+      "datasource": { "type": "prometheus", "uid": "dbw-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "fieldConfig": { "defaults": { "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (provider) (dbw_provider_circuit_state)",
+          "legendFormat": "circuit {{provider}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (reason) (rate(dbw_provider_fallbacks_total[15m]))",
+          "legendFormat": "fallback {{reason}}"
+        },
+        {
+          "refId": "C",
+          "expr": "sum by (error_category) (rate(dbw_model_calls_total{outcome=\"failure\"}[15m]))",
+          "legendFormat": "failed calls {{error_category}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Retrieval, validator and cache",
+      "datasource": { "type": "prometheus", "uid": "dbw-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "fieldConfig": { "defaults": { "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, stage) (rate(dbw_retrieval_duration_seconds_bucket[5m])))",
+          "legendFormat": "retrieval p95 {{stage}}"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le, dialect) (rate(dbw_policy_evaluation_duration_seconds_bucket[5m])))",
+          "legendFormat": "validator p95 {{dialect}}"
+        },
+        {
+          "refId": "C",
+          "expr": "sum(rate(dbw_cache_lookups_total{result=\"hit\"}[15m])) / sum(rate(dbw_cache_lookups_total[15m]))",
+          "legendFormat": "cache hit rate"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Instrumentation governance",
+      "description": "Non-zero rejections mean instrumentation tried to attach a forbidden span attribute or an unbounded metric label. Nothing leaked - the allowlist stopped it - but the call site needs fixing.",
+      "datasource": { "type": "prometheus", "uid": "dbw-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "fieldConfig": { "defaults": { "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (disposition) (rate(dbw_span_attributes_refused_total[15m]))",
+          "legendFormat": "span attrs {{disposition}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (label) (rate(dbw_metric_label_rejections_total[15m]))",
+          "legendFormat": "label rejected {{label}}"
+        },
+        {
+          "refId": "C",
+          "expr": "histogram_quantile(0.95, sum by (le, suite) (rate(dbw_eval_run_duration_seconds_bucket[6h])))",
+          "legendFormat": "eval p95 {{suite}}"
+        }
+      ]
+    }
+  ]
+}

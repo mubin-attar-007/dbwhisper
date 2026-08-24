@@ -53,16 +53,52 @@ export interface QueryResultData {
   csv: string;
   /** Full result set serialized as a JSON string (table fallback). */
   raw_json: string;
+  /** Deterministic per-column statistics computed server-side. */
+  describe?: Record<string, Record<string, unknown>>;
   describe_text: string;
+  /**
+   * True when the row cap was reached, so rows exist that you are not looking at. Optional
+   * because a v1 backend omits it; `undefined` means "not reported", which is not the same
+   * as `false` and must not be rendered as a reassurance.
+   */
+  truncated?: boolean | null;
+  /** The row cap that was applied to this result, when the backend reports one. */
+  row_limit?: number | null;
   page: number | null;
   page_size: number | null;
   has_next: boolean | null;
   total_rows: number | null;
 }
 
+/** The three decisions the AST policy engine can return (`app/sqlpolicy`). */
+export type PolicyDecision = "allow" | "deny" | "needs_approval";
+
+/**
+ * What the backend reports about *how* a query was judged and run.
+ *
+ * The v1 fields (`execution_time_ms`, `total_rows`) are always present. Everything below them
+ * arrived with v2 and is optional, so this client keeps working against an older backend — but
+ * it also means every consumer must distinguish "reported false" from "not reported at all".
+ */
 export interface ExecutionMetadata {
   execution_time_ms: number | null;
   total_rows: number | null;
+  /** Ruleset that judged the statement, e.g. "sql_policy@2.0.0". */
+  policy_version?: string | null;
+  policy_decision?: PolicyDecision | string | null;
+  /** Literal-independent hash of the statement; approvals bind to this, not to the text. */
+  sql_fingerprint?: string | null;
+  /** Enrolled tables the statement actually referenced, as resolved from the AST. */
+  tables_used?: string[] | null;
+  /** Mirrors `QueryResultData.truncated` for callers that only read metadata. */
+  truncated?: boolean | null;
+  /**
+   * Whether the database itself opened the session read-only. True on PostgreSQL, MySQL and
+   * SQLite; false on SQL Server, which has no session-level read-only mode.
+   */
+  read_only_enforced?: boolean | null;
+  /** Machine-readable failure class (policy, timeout, syntax, ...). */
+  error_category?: string | null;
 }
 
 export interface QueryResponse {

@@ -1,5 +1,11 @@
 # DBWhisper — Enhancement Plan (Productionization Roadmap)
 
+> **SUPERSEDED (2026-08-24).** This was the v1 productionization plan, written against the
+> pre-v2 codebase. It is kept for history and is **not** an accurate description of the project.
+> The current plan, architecture and delivery log live in [`docs/v2/`](docs/v2/) — start with
+> [`IMPLEMENTATION_ROADMAP.md`](docs/v2/IMPLEMENTATION_ROADMAP.md). Where the two disagree,
+> `docs/v2/` is correct.
+
 > Goal: bring **dbwhisper** (the NL→SQL "SQL Insight Agent") up to the same production standard as
 > **crownwager** and **tradepulse** — versioned on GitHub, CI-gated, containerized, and deployed free on
 > Hugging Face + Vercel + Neon + Upstash. Aligned to `crownwager/docs/MODERNIZATION_PLAYBOOK.md`.

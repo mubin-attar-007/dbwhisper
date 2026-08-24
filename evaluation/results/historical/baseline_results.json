@@ -1,0 +1,141 @@
+{
+  "model": "qwen/qwen3-32b (Groq)",
+  "method": "naive single-prompt (full schema, no retrieval, no validator), temp 0.1, exec-accuracy vs gold on eval_store.sqlite \u2014 same model/temp as the DBWhisper pipeline",
+  "n": 22,
+  "correct": 22,
+  "exec_accuracy": 1.0,
+  "rows": [
+    {
+      "id": 1,
+      "q": "How many customers are there?",
+      "gen_sql": "SELECT COUNT(*) FROM customers",
+      "ok": true
+    },
+    {
+      "id": 2,
+      "q": "How many orders have the status 'shipped'?",
+      "gen_sql": "SELECT COUNT(*) FROM orders WHERE status = 'shipped'",
+      "ok": true
+    },
+    {
+      "id": 3,
+      "q": "List all the distinct product categories.",
+      "gen_sql": "SELECT DISTINCT category FROM products",
+      "ok": true
+    },
+    {
+      "id": 4,
+      "q": "What is the average price of a product?",
+      "gen_sql": "SELECT AVG(price) FROM products",
+      "ok": true
+    },
+    {
+      "id": 5,
+      "q": "List the names of customers who live in Mumbai.",
+      "gen_sql": "SELECT name FROM customers WHERE city = 'Mumbai'",
+      "ok": true
+    },
+    {
+      "id": 6,
+      "q": "What is the total revenue across all order items?",
+      "gen_sql": "SELECT SUM(order_items.quantity * products.price) FROM order_items JOIN products ON order_items.product_id = products.id",
+      "ok": true
+    },
+    {
+      "id": 7,
+      "q": "How many products are in the Electronics category?",
+      "gen_sql": "SELECT COUNT(*) FROM products WHERE category = 'Electronics'",
+      "ok": true
+    },
+    {
+      "id": 8,
+      "q": "Which city has the most customers?",
+      "gen_sql": "SELECT city FROM customers GROUP BY city ORDER BY COUNT(*) DESC LIMIT 1",
+      "ok": true
+    },
+    {
+      "id": 9,
+      "q": "What is the name of the most expensive product?",
+      "gen_sql": "SELECT name FROM products WHERE price = (SELECT MAX(price) FROM products) LIMIT 1",
+      "ok": true
+    },
+    {
+      "id": 10,
+      "q": "How many orders did the customer named 'Aisha Khan' place?",
+      "gen_sql": "SELECT COUNT(*) FROM orders WHERE customer_id = (SELECT id FROM customers WHERE name = 'Aisha Khan')",
+      "ok": true
+    },
+    {
+      "id": 11,
+      "q": "List the product names in the Furniture category.",
+      "gen_sql": "SELECT name FROM products WHERE category = 'Furniture'",
+      "ok": true
+    },
+    {
+      "id": 12,
+      "q": "How many orders were cancelled?",
+      "gen_sql": "SELECT COUNT(*) FROM orders WHERE status = 'cancelled'",
+      "ok": true
+    },
+    {
+      "id": 13,
+      "q": "What is the total quantity of items ordered across all order items?",
+      "gen_sql": "SELECT SUM(quantity) FROM order_items",
+      "ok": true
+    },
+    {
+      "id": 14,
+      "q": "How many distinct customers have placed at least one order?",
+      "gen_sql": "SELECT COUNT(DISTINCT customer_id) FROM orders",
+      "ok": true
+    },
+    {
+      "id": 15,
+      "q": "How many products cost more than 1000?",
+      "gen_sql": "SELECT COUNT(*) FROM products WHERE price > 1000",
+      "ok": true
+    },
+    {
+      "id": 16,
+      "q": "List the names of customers who signed up in March 2025.",
+      "gen_sql": "SELECT name FROM customers WHERE strftime('%Y-%m', signup_date) = '2025-03'",
+      "ok": true
+    },
+    {
+      "id": 17,
+      "q": "How many orders are there in total?",
+      "gen_sql": "SELECT COUNT(*) FROM orders",
+      "ok": true
+    },
+    {
+      "id": 18,
+      "q": "List the three most expensive products by name.",
+      "gen_sql": "SELECT name FROM products ORDER BY price DESC LIMIT 3",
+      "ok": true
+    },
+    {
+      "id": 19,
+      "q": "How many customers are from Delhi or Bengaluru?",
+      "gen_sql": "SELECT COUNT(*) FROM customers WHERE city IN ('Delhi', 'Bengaluru')",
+      "ok": true
+    },
+    {
+      "id": 20,
+      "q": "What is the price of the product named 'Office Chair'?",
+      "gen_sql": "SELECT price FROM products WHERE name = 'Office Chair'",
+      "ok": true
+    },
+    {
+      "id": 21,
+      "q": "How many order items reference the product 'Wireless Mouse'?",
+      "gen_sql": "SELECT COUNT(*) FROM order_items INNER JOIN products ON order_items.product_id = products.id WHERE products.name = 'Wireless Mouse'",
+      "ok": true
+    },
+    {
+      "id": 22,
+      "q": "Which customer placed the most orders? Give the customer name.",
+      "gen_sql": "SELECT customers.name FROM customers JOIN orders ON customers.id = orders.customer_id GROUP BY customers.id ORDER BY COUNT(*) DESC LIMIT 1",
+      "ok": true
+    }
+  ]
+}

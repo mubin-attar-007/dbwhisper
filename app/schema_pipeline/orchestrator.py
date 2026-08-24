@@ -65,14 +65,12 @@ class SchemaPipelineOrchestrator:
         )
 
         documentation_summary = None
-        documentation_summary = None
         if self.run_documentation:
             td0 = perf_counter()
             documentation_summary = self._run_documentation(extraction_path)
             td1 = perf_counter()
             logger.info("Documentation stage completed in %.3fs", td1 - td0)
 
-        embedding_result = None
         embedding_result = None
         if self.run_embeddings:
             te0 = perf_counter()
@@ -103,7 +101,7 @@ class SchemaPipelineOrchestrator:
 
     def _run_documentation(self, schema_dir: Path) -> SchemaDocumentationSummary:
         intro_path = Path(self.settings.intro_template)
-        print(f"Using intro template at: {intro_path} , {intro_path.exists()}, DB_{self.db_flag}")
+        logger.debug("Using intro template at %s (exists=%s)", intro_path, intro_path.exists())
         summary = document_database_schema(
             database_name=self.db_flag,
             schema_output_dir=schema_dir,

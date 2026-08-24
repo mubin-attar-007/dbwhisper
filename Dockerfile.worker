@@ -1,0 +1,91 @@
+# syntax=docker/dockerfile:1
+#
+# The DBWhisper background-worker image: `python -m app.jobs.worker`.
+#
+# Why a separate image rather than the API image with a different command? Because the two processes
+# should be able to differ, and pretending otherwise hides the differences that already exist:
+#
+#   * the worker listens on no port, so it gets no EXPOSE and no HTTP healthcheck (see below);
+#   * it runs enrollment and evaluation jobs, which are long and CPU-heavy, so it is the process you
+#     scale by replica count and the one you would give a different memory limit;
+#   * it needs the target-database drivers (schema introspection is its main job) but never serves a
+#     request, so its attack surface and its logs are different in kind.
+#
+# **Maintenance rule.** The builder and runtime stages below are intentionally identical to those in
+# `Dockerfile`, which is what lets the daemon reuse the cached layers instead of building the ODBC
+# stack twice. They are duplicated rather than shared because a Dockerfile cannot `FROM` a stage in
+# another file without first building and tagging it, and an image that only builds in the right
+# order is a worse trade than fifty lines a reviewer can diff. **If you edit one file, edit both.**
+#
+# No GPU is required or expected.
+
+# ── Builder: identical to Dockerfile's builder stage ─────────────────────────────────────────────
+FROM python:3.13-slim-bookworm AS builder
+
+ARG UV_VERSION=0.11.6
+RUN pip install --no-cache-dir "uv==${UV_VERSION}"
+
+ENV UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1 \
+    UV_PYTHON_DOWNLOADS=never
+
+WORKDIR /app
+COPY pyproject.toml uv.lock README.md ./
+RUN uv sync --frozen --no-dev --no-install-project
+
+# ── Runtime ──────────────────────────────────────────────────────────────────────────────────────
+FROM python:3.13-slim-bookworm AS worker
+
+LABEL org.opencontainers.image.title="DBWhisper worker" \
+      org.opencontainers.image.description="Background job runner: schema enrollment, embeddings, evaluation." \
+      org.opencontainers.image.source="https://github.com/mubin-attar-007/dbwhisper" \
+      org.opencontainers.image.licenses="MIT"
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH="/app" \
+    APP_ENV=production \
+    EMBEDDING_PROFILE=auto \
+    HF_HOME=/app/.cache/hf \
+    FASTEMBED_CACHE_PATH=/app/.cache/fastembed
+
+# Same driver stack as the API image. curl is present only long enough to fetch the Microsoft
+# repository key and is kept because apt needs it for the https transport on this base.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl gnupg unixodbc ca-certificates \
+    && curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
+        | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/12/prod bookworm main" \
+        > /etc/apt/sources.list.d/mssql-release.list \
+    && apt-get update \
+    && ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql18 \
+    && apt-get purge -y gnupg \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m -u 1000 appuser
+WORKDIR /app
+
+COPY --from=builder /app/.venv /app/.venv
+COPY --chown=appuser:appuser app ./app
+COPY --chown=appuser:appuser db ./db
+COPY --chown=appuser:appuser scripts ./scripts
+COPY --chown=appuser:appuser database_schemas ./database_schemas
+# The worker runs migrations in exactly the same way the API does, so it needs alembic.ini too.
+COPY --chown=appuser:appuser alembic.ini ./alembic.ini
+
+RUN mkdir -p /app/Log /app/.cache/hf /app/.cache/fastembed \
+    && chown -R appuser:appuser /app/Log /app/.cache
+USER appuser
+
+# No HEALTHCHECK on purpose. The worker has no endpoint, and the honest liveness signal — "is it
+# claiming jobs?" — lives in the queue table, not in the process. A healthcheck that only asserts
+# the process exists would report green for a worker wedged on a dead lease. Watch the
+# `dbwhisper_jobs_*` metrics (app/observability/metrics.py) or the `jobs` table instead.
+#
+# It stops cleanly on SIGTERM: the job in flight finishes its stage and the lease is released, so
+# give it a real stop_grace_period rather than the default 10s (compose.yaml sets 60s).
+STOPSIGNAL SIGTERM
+
+CMD ["python", "-m", "app.jobs.worker"]

@@ -1,0 +1,72 @@
+database_name: evalstore
+extraction_date: '2026-07-08T11:44:58.650983+00:00'
+total_schemas: 1
+total_tables: 4
+total_views: 0
+schemas:
+- name: public
+  table_count: 4
+  view_count: 0
+tables:
+- table: customers
+  schema: public
+  object_type: table
+  keywords: []
+  column_names:
+  - id
+  - name
+  - city
+  - signup_date
+  primary_key:
+  - id
+  has_foreign_keys: false
+  short_description: The customers table serves as the central repository for all
+    customer information within the database, supporting sales, support, and marketing
+    operations by providing essential contact and demographic data.
+- table: products
+  schema: public
+  object_type: table
+  keywords: []
+  column_names:
+  - id
+  - name
+  - category
+  - price
+  primary_key:
+  - id
+  has_foreign_keys: false
+  short_description: ''
+- table: orders
+  schema: public
+  object_type: table
+  keywords: []
+  column_names:
+  - id
+  - customer_id
+  - order_date
+  - status
+  primary_key:
+  - id
+  has_foreign_keys: false
+  short_description: The orders table serves as the central repository for tracking
+    customer orders within the system. It captures essential details such as order
+    identifiers, customer associations, order timestamps, and fulfillment statuses,
+    enabling businesses to manage order lifecycles and monitor sales activity.
+- table: order_items
+  schema: public
+  object_type: table
+  keywords: []
+  column_names:
+  - id
+  - order_id
+  - product_id
+  - quantity
+  primary_key:
+  - id
+  has_foreign_keys: false
+  short_description: The order_items table serves as a junction between orders and
+    products, recording the quantity of each product included in an order. It supports
+    inventory management and order fulfillment processes by tracking ordered items
+    at a granular level.
+relationship_summary:
+  many_to_many_patterns: []
