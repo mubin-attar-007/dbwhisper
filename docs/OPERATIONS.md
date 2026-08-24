@@ -315,8 +315,9 @@ uv run python -c "import os;from db.migrate import current_revision;print(curren
 **Suspected prompt injection through data.** The policy engine is between generation and execution, so
 an injected instruction cannot become a write — it becomes a denied statement. Confirm with
 `dbw_policy_decisions_total{decision="deny"}` and the run record. Then check the *content* path: an
-injected instruction can still influence the summary. The verification step checks the summary against
-the returned rows, but it is a shape check, not a semantic proof.
+injected instruction can still influence the summary. The verify node checks the *result* against the
+shape the question asked for, and the summary is generated from the returned rows — but a shape check
+is not a semantic proof.
 
 **A target database is being hammered.** Row caps and statement timeouts are per-execution
 (`app/execution/`); per-IP token buckets are per-request (`RATE_LIMIT_*`, `QUERY_RATE_LIMIT_*`).

@@ -41,8 +41,10 @@ of the prompt. So:
 - there is **one execution function** (`app/execution/service.py`) and it re-evaluates policy on
   every call, even when the caller already holds an approval, because a second entrance is how a
   read-only promise quietly stops being true;
-- the answer is **grounded**: a verification step checks the summary against the rows that were
-  actually returned, and every response carries the SQL, the policy decision and the fingerprint;
+- the answer is **grounded**: a deterministic step checks the result against the shape the question
+  asked for before anything is written about it, the summary is generated from the rows that came
+  back (with a statistics-only fallback), and every response carries the SQL, the policy decision and
+  the fingerprint;
 - everything runs **locally** if you want it to — Ollama for the model, fastembed on the CPU for
   embeddings, PostgreSQL in a container. No key, no vendor, no data leaving the host.
 
@@ -296,7 +298,7 @@ uv run ruff check app db tests scripts run.py
 uv run ruff format --check app db tests scripts run.py
 uv run pytest                      # offline: MODEL_PROFILE=fake, EMBEDDING_PROFILE=fake
 uv run mypy app/embeddings app/analysis app/observability db/migrate.py   # the clean set
-cd web && npm ci && npm run lint && npm run typecheck && npm test && npm run build
+cd web && npm ci && npm run lint && npm run typecheck && npm test && npm run build && npm run e2e
 ```
 
 CI runs all of the above plus a PostgreSQL integration job (Alembic and pgvector on a real

@@ -7,10 +7,11 @@ from pathlib import Path
 from time import perf_counter
 
 from app.models import SchemaDocumentationSummary, SchemaEmbeddingResult, SchemaEmbeddingSettings
+from app.platform.paths import schema_dir
 from app.schema_pipeline.embedding_pipeline import SchemaEmbeddingPipeline
 from app.schema_pipeline.pipeline import SchemaExtractionPipeline
 from app.schema_pipeline.schema_documenting import document_database_schema
-from app.user_db_config_loader import PROJECT_ROOT, get_user_database_settings
+from app.user_db_config_loader import get_user_database_settings
 from app.utils.logger import setup_logging
 
 logger = setup_logging(__name__)
@@ -45,7 +46,7 @@ class SchemaPipelineOrchestrator:
         self.incremental_documentation = incremental_documentation
         self.run_embeddings = run_embeddings
         self.settings = get_user_database_settings(db_flag)
-        self.extraction_output = PROJECT_ROOT / "database_schemas" / db_flag / "schema"
+        self.extraction_output = schema_dir(db_flag)
         # Get the Postgres connection string from a central place (not user input)
         # This assumes you have a way to get the project-level Postgres connection string
         # For example, from an environment variable or a config file

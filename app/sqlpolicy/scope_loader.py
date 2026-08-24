@@ -13,12 +13,13 @@ from pathlib import Path
 
 import yaml
 
+from app.platform.paths import schema_index_path as safe_schema_index_path
 from app.sqlpolicy.types import Dialect, SchemaScope
-from app.user_db_config_loader import PROJECT_ROOT
 
 
 def schema_index_path(db_flag: str) -> Path:
-    return Path(PROJECT_ROOT) / "database_schemas" / db_flag / "schema" / "schema_index.yaml"
+    """Validated: a db_flag can arrive from a request, so it is not trusted as a path part."""
+    return safe_schema_index_path(db_flag)
 
 
 @lru_cache(maxsize=64)

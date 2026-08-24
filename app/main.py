@@ -79,6 +79,8 @@ from app.platform.connection_secrets import (
     prepare_for_storage,
     read_connection_string,
 )
+from app.platform.paths import schema_dir as safe_schema_dir
+from app.platform.paths import schema_index_path as safe_schema_index_path
 from app.schema_pipeline import SchemaPipelineOrchestrator
 from app.schema_pipeline.embedding_pipeline import (
     SchemaEmbeddingPipeline,
@@ -92,7 +94,7 @@ from app.security.auth import (
 from app.security.csrf import require_csrf
 from app.security.ratelimit import RateLimitMiddleware
 from app.sqlpolicy import Decision, Dialect
-from app.user_db_config_loader import PROJECT_ROOT, get_user_database_settings
+from app.user_db_config_loader import get_user_database_settings
 from app.utils.logger import sanitize_for_log as _sanitize
 from app.utils.logger import setup_logging
 from db.conversation_memory import (
@@ -705,7 +707,7 @@ async def get_schema(db_flag: str, http_request: Request) -> SchemaResponse:
     _enforce_db_access(http_request, db_flag)
     import yaml
 
-    index_path = Path(PROJECT_ROOT) / "database_schemas" / db_flag / "schema" / "schema_index.yaml"
+    index_path = safe_schema_index_path(db_flag)
     if not index_path.exists():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -1195,7 +1197,7 @@ async def enroll_database(
             "Schema already extracted for db_flag=%s and incremental=False. Skipping.",
             request.db_flag,
         )
-        extraction_output = PROJECT_ROOT / "database_schemas" / request.db_flag / "schema"
+        extraction_output = safe_schema_dir(request.db_flag)
         extraction_summary = ExtractionStageSummary(
             status="success",
             output_directory=str(extraction_output),

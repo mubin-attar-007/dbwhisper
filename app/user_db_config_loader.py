@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models import DatabaseSettings
 from app.platform.connection_secrets import read_connection_string
+from app.platform.paths import intro_path
 from app.utils.logger import sanitize_for_log, setup_logging
 from db.database_manager import get_project_db_connection_string, get_session
 from db.model import DatabaseConfig
@@ -61,9 +62,7 @@ def get_user_database_settings(db_flag: str) -> DatabaseSettings:
                 if fallback.exists():
                     intro_template = str(fallback)
         else:
-            default_path = (
-                PROJECT_ROOT / "database_schemas" / db_flag / "db_intro" / f"{db_flag}_intro.txt"
-            )
+            default_path = intro_path(db_flag)
             if default_path.exists():
                 intro_template = str(default_path)
 

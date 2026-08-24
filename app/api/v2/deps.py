@@ -29,6 +29,8 @@ from app.embeddings.service import get_embedding_provider
 from app.graph.deps import DataSourceTarget, GraphDeps
 from app.llm.service import get_router
 from app.platform.connection_secrets import read_connection_string
+from app.platform.paths import schema_index_path as safe_schema_index_path
+from app.platform.paths import validate_source_id
 from app.retrieval.base import SearchDocument
 from app.retrieval.documents import documents_from_schema_index, verified_query_document
 from app.retrieval.memory_index import InMemoryRetrievalIndex
@@ -46,7 +48,8 @@ class UnknownDataSource(KeyError):
 
 
 def schema_index_path(source_id: str) -> Path:
-    return PROJECT_ROOT / "database_schemas" / source_id / "schema" / "schema_index.yaml"
+    """Validated: ``source_id`` reaches this from a URL, so it cannot be trusted as a path part."""
+    return safe_schema_index_path(source_id)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -62,6 +65,10 @@ def resolve_source(source_id: str) -> DataSourceTarget:
     """
     from db.database_manager import get_project_db_connection_string, get_session
     from db.model import DatabaseConfig
+
+    # Validated here, not only where a path is built: the identifier goes on to reach a database
+    # query and several log lines, and a value carrying a newline can forge a log entry.
+    source_id = validate_source_id(source_id)
 
     session = get_session(get_project_db_connection_string())
     try:
@@ -124,6 +131,7 @@ def _verified_query_documents(source_id: str, snapshot_id: str) -> list[SearchDo
 
 def build_index(source_id: str) -> InMemoryRetrievalIndex:
     """Index one data source's schema. Embeddings are best-effort: lexical search still works."""
+    source_id = validate_source_id(source_id)
     path = schema_index_path(source_id)
     if not path.is_file():
         raise UnknownDataSource(f"{source_id} has no enrolled schema at {path}")
@@ -153,6 +161,7 @@ def build_index(source_id: str) -> InMemoryRetrievalIndex:
 
 def get_index(source_id: str) -> InMemoryRetrievalIndex:
     """Cached index, rebuilt when the enrolled schema file changes."""
+    source_id = validate_source_id(source_id)
     path = schema_index_path(source_id)
     mtime = path.stat().st_mtime_ns if path.is_file() else 0
     with _index_lock:
