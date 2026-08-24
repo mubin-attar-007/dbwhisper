@@ -1,0 +1,59 @@
+{
+  "cases_scored": 135,
+  "caveat": "Local CPU embeddings - the same model a self-hosted deployment uses.",
+  "embedding_version": "fastembed:BAAI/bge-small-en-v1.5:384:n:1",
+  "embeddings": "local",
+  "environment": "Windows 10, Python 3.13.13",
+  "k": 8,
+  "kind": "retrieval-only",
+  "measured_at": "2026-08-24T13:43:18+00:00",
+  "measures_model": false,
+  "mrr": 0.980246913580247,
+  "per_dataset": [
+    {
+      "cases": 50,
+      "dataset": "retail",
+      "mrr": 0.9766666666666667,
+      "table_recall": {
+        "denominator": 91,
+        "label": "table recall@k",
+        "numerator": 90,
+        "text": "90 of 91 (98.9%)",
+        "value": 0.989011
+      }
+    },
+    {
+      "cases": 43,
+      "dataset": "saas_ops",
+      "mrr": 0.9883720930232558,
+      "table_recall": {
+        "denominator": 62,
+        "label": "table recall@k",
+        "numerator": 62,
+        "text": "62 of 62 (100.0%)",
+        "value": 1.0
+      }
+    },
+    {
+      "cases": 42,
+      "dataset": "synthetic_snf",
+      "mrr": 0.9761904761904762,
+      "table_recall": {
+        "denominator": 66,
+        "label": "table recall@k",
+        "numerator": 65,
+        "text": "65 of 66 (98.5%)",
+        "value": 0.984848
+      }
+    }
+  ],
+  "reproduce": "uv run python -m app.evaluation.cli retrieval --dataset retail --dataset saas_ops --dataset synthetic_snf --k 8 --embeddings local",
+  "run": "retrieval-all-local-k8",
+  "table_recall": {
+    "denominator": 219,
+    "label": "table recall@k",
+    "numerator": 217,
+    "text": "217 of 219 (99.1%)",
+    "value": 0.990868
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "cases_scored": 50,
+  "caveat": "Local CPU embeddings - the same model a self-hosted deployment uses.",
+  "embedding_version": "fastembed:BAAI/bge-small-en-v1.5:384:n:1",
+  "embeddings": "local",
+  "environment": "Windows 10, Python 3.13.13",
+  "k": 8,
+  "kind": "retrieval-only",
+  "measured_at": "2026-08-24T13:42:37+00:00",
+  "measures_model": false,
+  "mrr": 0.9766666666666667,
+  "per_dataset": [
+    {
+      "cases": 50,
+      "dataset": "retail",
+      "mrr": 0.9766666666666667,
+      "table_recall": {
+        "denominator": 91,
+        "label": "table recall@k",
+        "numerator": 90,
+        "text": "90 of 91 (98.9%)",
+        "value": 0.989011
+      }
+    }
+  ],
+  "reproduce": "uv run python -m app.evaluation.cli retrieval --dataset retail --k 8 --embeddings local",
+  "run": "retrieval-retail-local-k8",
+  "table_recall": {
+    "denominator": 91,
+    "label": "table recall@k",
+    "numerator": 90,
+    "text": "90 of 91 (98.9%)",
+    "value": 0.989011
+  }
+}

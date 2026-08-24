@@ -180,22 +180,27 @@ def cmd_safety(args: argparse.Namespace) -> int:
 
 def cmd_retrieval(args: argparse.Namespace) -> int:
     """Retrieval only: no model call is needed to know which tables came back."""
-    from app.embeddings.fake import FakeEmbeddingProvider
     from app.evaluation.datasets.build import build_index, prepare, snapshot_id
     from app.evaluation.metrics import Ratio, recall_at_k, reciprocal_rank
     from app.evaluation.runner import load_dataset_for
     from app.retrieval.context_pack import build_context_pack
     from app.retrieval.hybrid import RetrievalRequest, retrieve
 
+    embeddings_kind = getattr(args, "embeddings", "fake")
+    embedding_version = "unknown"
+    per_dataset: list[dict[str, object]] = []
     table_hits = table_total = 0
     reciprocal_total = 0.0
     scored = 0
     for name in args.dataset or dataset_names():
         spec = get_spec(name)
         prepare(spec, force=bool(args.rebuild))
-        embedder = FakeEmbeddingProvider(dimension=128)
+        embedder = _retrieval_embedder(embeddings_kind)
+        embedding_version = embedder.version.key
         index = build_index(spec, embedder)
         dataset = load_dataset_for(spec)
+        dataset_hits = dataset_total = dataset_scored = 0
+        dataset_reciprocal = 0.0
         cases = dataset.select(
             behaviors=(ExpectedBehavior.ANSWER,),
             limit=args.limit,
@@ -218,7 +223,19 @@ def cmd_retrieval(args: argparse.Namespace) -> int:
             table_hits += recall.numerator
             table_total += recall.denominator
             reciprocal_total += reciprocal_rank(case.expected_tables, retrieved)
+            dataset_reciprocal += reciprocal_rank(case.expected_tables, retrieved)
+            dataset_hits += recall.numerator
+            dataset_total += recall.denominator
+            dataset_scored += 1
             scored += 1
+        per_dataset.append(
+            {
+                "dataset": spec.name,
+                "cases": dataset_scored,
+                "table_recall": Ratio(dataset_hits, dataset_total, "table recall@k").as_dict(),
+                "mrr": (dataset_reciprocal / dataset_scored) if dataset_scored else None,
+            }
+        )
         print(f"{spec.name}: {len(cases)} case(s) scored")
 
     overall = Ratio(table_hits, table_total, "table recall@k")
@@ -231,7 +248,151 @@ def cmd_retrieval(args: argparse.Namespace) -> int:
         "\nRetrieval only - no model, no policy engine, no execution. This measures whether the "
         "context pack contained the tables the reference query needed."
     )
+
+    if args.out:
+        for path in _write_retrieval_report(
+            out_dir=Path(args.out),
+            label=getattr(args, "label", None),
+            k=args.k,
+            embeddings_kind=embeddings_kind,
+            embedding_version=embedding_version,
+            overall=overall,
+            mrr=(reciprocal_total / scored) if scored else None,
+            scored=scored,
+            per_dataset=per_dataset,
+        ):
+            print(f"wrote {path}")
     return 0
+
+
+def _retrieval_embedder(kind: str):
+    """The embedder a retrieval run scores against.
+
+    Fake is the default and the one CI uses: it is deterministic, needs no download and no network,
+    so a recall figure from CI is reproducible byte-for-byte and a regression is a real regression.
+    It does not measure semantic retrieval - with fake vectors the fusion is carried by BM25 and the
+    exact-match boost - so a report built on it must say so, and ``_write_retrieval_report`` does.
+
+    Local uses the same CPU model a self-hosted deployment uses, downloaded on first call. That is
+    the number that describes the product; it is not run in CI because a model download does not
+    belong in a pull-request gate.
+    """
+    if kind == "local":
+        from app.embeddings.local import LocalEmbeddingProvider
+
+        return LocalEmbeddingProvider()
+
+    from app.embeddings.fake import FakeEmbeddingProvider
+
+    return FakeEmbeddingProvider(dimension=128)
+
+
+def _write_retrieval_report(
+    *,
+    out_dir: Path,
+    label: str | None,
+    k: int,
+    embeddings_kind: str,
+    embedding_version: str,
+    overall,
+    mrr: float | None,
+    scored: int,
+    per_dataset: list[dict],
+) -> list[Path]:
+    """Write the run as JSON and Markdown, with the provenance that makes the number citable.
+
+    A retrieval number without its embedder, its k and its dataset revision is not a measurement,
+    it is a rumour - so both files carry all three, plus the command that reproduces them.
+    """
+    import json
+    from datetime import UTC, datetime
+
+    from app.evaluation.provenance import environment_description
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    name = label or f"retrieval-{embeddings_kind}-k{k}"
+    measured_at = datetime.now(UTC).isoformat(timespec="seconds")
+
+    reproduce = (
+        "uv run python -m app.evaluation.cli retrieval"
+        + "".join(f" --dataset {d['dataset']}" for d in per_dataset)
+        + f" --k {k} --embeddings {embeddings_kind}"
+    )
+    caveat = (
+        "Fake embeddings are deterministic vectors, so this measures the lexical and fusion path, "
+        "not semantic similarity. It is a regression gate, not a statement about retrieval quality."
+        if embeddings_kind == "fake"
+        else "Local CPU embeddings - the same model a self-hosted deployment uses."
+    )
+
+    payload = {
+        "run": name,
+        "measured_at": measured_at,
+        "kind": "retrieval-only",
+        "k": k,
+        "embeddings": embeddings_kind,
+        "embedding_version": embedding_version,
+        "cases_scored": scored,
+        "table_recall": overall.as_dict(),
+        "mrr": mrr,
+        "per_dataset": per_dataset,
+        "environment": environment_description(),
+        "reproduce": reproduce,
+        "measures_model": False,
+        "caveat": caveat,
+    }
+
+    json_path = out_dir / f"{name}.json"
+    json_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    rows = "\n".join(
+        "| {} | {} | {} | {} |".format(
+            d["dataset"],
+            d["cases"],
+            d["table_recall"].get("text", ""),
+            "n/a" if d["mrr"] is None else f"{d['mrr']:.4f}",
+        )
+        for d in per_dataset
+    )
+    markdown = f"""# Retrieval evaluation - {name}
+
+**Retrieval only.** No model call, no policy engine, no execution. This measures one thing: whether
+the context pack handed to the model contained the tables the reference query actually needed.
+
+{caveat}
+
+| Field | Value |
+|---|---|
+| Measured | {measured_at} |
+| k | {k} |
+| Embeddings | `{embeddings_kind}` |
+| Embedding model | `{embedding_version}` |
+| Cases scored | {scored} |
+| Table recall@{k} | **{overall.text()}** |
+| Mean reciprocal rank | **{"n/a" if mrr is None else f"{mrr:.4f}"}** |
+| Measures model quality | no |
+
+## Per dataset
+
+| Dataset | Cases | Table recall@{k} | MRR |
+|---|---|---|---|
+{rows}
+
+## Reproduce
+
+```
+{reproduce}
+```
+
+## Environment
+
+```
+{environment_description()}
+```
+"""
+    markdown_path = out_dir / f"{name}.md"
+    markdown_path.write_text(markdown, encoding="utf-8")
+    return [json_path, markdown_path]
 
 
 def cmd_report(args: argparse.Namespace) -> int:
@@ -423,6 +584,15 @@ def build_parser() -> argparse.ArgumentParser:
     retrieval = subparsers.add_parser("retrieval", help="retrieval metrics only, no model")
     _add_common(retrieval)
     retrieval.add_argument("--k", type=int, default=8)
+    retrieval.add_argument(
+        "--embeddings",
+        choices=("fake", "local"),
+        default="fake",
+        help=(
+            "fake (default): deterministic and offline, what CI measures. "
+            "local: the CPU model a self-hosted deployment uses, downloaded on first run."
+        ),
+    )
     retrieval.set_defaults(handler=cmd_retrieval)
 
     report_parser = subparsers.add_parser("report", help="re-render a stored JSON run as Markdown")

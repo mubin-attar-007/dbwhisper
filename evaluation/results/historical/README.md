@@ -1,7 +1,15 @@
 # Historical evaluation results (v1) — archived, not publishable
 
-These four JSON files are **copies** of the v1 evaluation output that lived in the untracked `eval/`
-directory. The originals were left in place; nothing was moved.
+These four JSON files are **copies** of the v1 evaluation output produced by the scripts in `eval/`.
+The originals were left in place; nothing was moved.
+
+`eval/` was untracked when this note was first written and is now committed, deliberately: the
+provenance files beside this one cite specific lines in `eval/harness.py`, `eval/baseline.py` and
+`eval/rescore.py` to show how each number was produced. Deleting the scripts would leave those
+citations dangling and make the correction unverifiable, which is the one thing this directory
+exists to prevent. Nothing in `eval/` runs today — it expects a PostgreSQL instance on port 55432
+and a provider that is no longer a dependency — and nothing in the v2 pipeline imports it. The
+current, runnable evaluation harness is `app/evaluation/` with the wrappers in `scripts/`.
 
 They are here for one reason: so the numbers that circulated in the project's own README and
 marketing copy have a permanent, citable home next to the reasons they cannot be published. Deleting
