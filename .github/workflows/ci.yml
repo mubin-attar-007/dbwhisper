@@ -74,7 +74,12 @@ jobs:
         # Measured 2026-08-24 with `uv run mypy --follow-imports=silent <pkg>` on this branch:
         # app/embeddings 0, app/analysis 0, app/observability 0, db/migrate.py 0.
         # Add a package here the moment it reaches zero; never remove one to make a build pass.
-        run: uv run mypy app/embeddings app/analysis app/observability db/migrate.py
+        # --follow-imports=silent is what the measurement above used, and it is the whole point:
+        # without it mypy reports errors from every module these packages *import*, so the gate
+        # would fail on type debt that lives outside the packages it is meant to gate.
+        run: >-
+          uv run mypy --follow-imports=silent
+          app/embeddings app/analysis app/observability db/migrate.py
 
       - name: Type check - ratchet (the type debt may shrink, never grow)
         # The rest of the tree carries inherited type debt. Fixing all of it is a project in itself;
@@ -121,6 +126,10 @@ jobs:
     defaults:
       run:
         working-directory: web
+    # playwright.config.ts keys forbidOnly, retries and workers off CI; without this a
+    # stray test.only would pass silently.
+    env:
+      CI: "true"
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -142,6 +151,24 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # The e2e suite needs no backend and no database: every /api/* call is intercepted with
+      # page.route, and API_PROXY_TARGET points at a closed port so an unstubbed request fails
+      # loudly rather than silently reaching something real.
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: npm run e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: web/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: npm audit
         # Informational, like pip-audit below and for the same reason: an advisory published against
@@ -430,7 +457,7 @@ jobs:
         continue-on-error: true
 
       - name: Trivy filesystem scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .

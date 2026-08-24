@@ -156,7 +156,11 @@ def main() -> None:
                 "VALUES (:id, :order_id, :product_id, :quantity, :unit_price)"
             ),
             [
-                dict(zip(("id", "order_id", "product_id", "quantity", "unit_price"), row, strict=True))
+                dict(
+                    zip(
+                        ("id", "order_id", "product_id", "quantity", "unit_price"), row, strict=True
+                    )
+                )
                 for row in ORDER_ITEMS
             ],
         )
