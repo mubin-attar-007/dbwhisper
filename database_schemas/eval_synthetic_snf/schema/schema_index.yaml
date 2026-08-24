@@ -1,0 +1,229 @@
+# GENERATED FILE - do not edit by hand.
+# Written by app/evaluation/datasets/build.py for the synthetic evaluation dataset
+# 'synthetic_snf' v1.0.0. Rebuild with:  uv run python -m app.evaluation.cli build
+# The database it describes contains fabricated data only.
+database_name: eval_synthetic_snf
+extraction_date: generated:synthetic_snf@1.0.0
+total_schemas: 1
+total_tables: 10
+total_views: 0
+generated_by: app.evaluation.datasets - synthetic evaluation fixture
+synthetic: true
+schemas:
+- name: main
+  table_count: 10
+  view_count: 0
+tables:
+- table: facilities
+  schema: main
+  object_type: table
+  keywords:
+  - facility
+  - site
+  - home
+  - building
+  - beds
+  column_names:
+  - facility_id
+  - facility_code
+  - facility_name
+  - state_code
+  - bed_count
+  - ownership_type
+  primary_key:
+  - facility_id
+  has_foreign_keys: false
+  short_description: Synthetic skilled-nursing facilities. facility_code is an invented
+    identifier and does not correspond to any real certification or provider number.
+- table: residents
+  schema: main
+  object_type: table
+  keywords:
+  - resident
+  - patient
+  - person
+  - census
+  - cohort
+  column_names:
+  - resident_id
+  - facility_id
+  - resident_code
+  - birth_year
+  - sex
+  - first_admitted_on
+  primary_key:
+  - resident_id
+  has_foreign_keys: true
+  short_description: 'Synthetic residents. No names, no dates of birth and no medical-record
+    numbers: identity is the opaque resident_code and only a birth year is stored.'
+- table: admissions
+  schema: main
+  object_type: table
+  keywords:
+  - admission
+  - stay
+  - discharge
+  - length of stay
+  - readmission
+  column_names:
+  - admission_id
+  - resident_id
+  - admitted_on
+  - discharged_on
+  - admission_source
+  - discharge_disposition
+  - length_of_stay_days
+  primary_key:
+  - admission_id
+  has_foreign_keys: true
+  short_description: One stay. A resident can have several. discharged_on is null
+    while the resident is still admitted, so length of stay is undefined for those
+    rows.
+- table: census_days
+  schema: main
+  object_type: table
+  keywords:
+  - census
+  - occupancy
+  - beds
+  - daily
+  - utilisation
+  column_names:
+  - census_id
+  - facility_id
+  - census_date
+  - occupied_beds
+  - available_beds
+  primary_key:
+  - census_id
+  has_foreign_keys: true
+  short_description: 'Daily occupancy per facility. A facility-level fact with no
+    resident key: it can be joined to facilities but never to a resident.'
+- table: diagnoses
+  schema: main
+  object_type: table
+  keywords:
+  - diagnosis
+  - condition
+  - acuity
+  - primary
+  - comorbidity
+  column_names:
+  - diagnosis_id
+  - admission_id
+  - diagnosis_group
+  - recorded_on
+  - is_primary
+  primary_key:
+  - diagnosis_id
+  has_foreign_keys: true
+  short_description: 'Coarse diagnosis groups recorded against an admission. Deliberately
+    not coded: these are broad text categories, never ICD or any other clinical code
+    set.'
+- table: assessments
+  schema: main
+  object_type: table
+  keywords:
+  - assessment
+  - adl
+  - cognition
+  - functional
+  - score
+  column_names:
+  - assessment_id
+  - resident_id
+  - assessment_date
+  - assessment_type
+  - adl_score
+  - cognition_score
+  primary_key:
+  - assessment_id
+  has_foreign_keys: true
+  short_description: Periodic functional assessments of a resident. adl_score is 0-28
+    (higher means more assistance needed); cognition_score is 0-15. Both are invented
+    scales.
+- table: payers
+  schema: main
+  object_type: table
+  keywords:
+  - payer
+  - insurer
+  - plan
+  - coverage
+  - reimbursement
+  column_names:
+  - payer_id
+  - payer_name
+  - payer_type
+  primary_key:
+  - payer_id
+  has_foreign_keys: false
+  short_description: Synthetic payer directory. Every payer name is invented.
+- table: claims
+  schema: main
+  object_type: table
+  keywords:
+  - claim
+  - billing
+  - payment
+  - denied
+  - revenue
+  - reimbursement
+  column_names:
+  - claim_id
+  - claim_code
+  - admission_id
+  - payer_id
+  - claim_date
+  - billed_amount
+  - paid_amount
+  - claim_status
+  primary_key:
+  - claim_id
+  has_foreign_keys: true
+  short_description: Billing for an admission. A claim belongs to an admission, not
+    to a resident, so cost per resident requires joining through admissions.
+- table: therapy_sessions
+  schema: main
+  object_type: table
+  keywords:
+  - therapy
+  - rehab
+  - minutes
+  - physical
+  - occupational
+  - speech
+  column_names:
+  - session_id
+  - resident_id
+  - session_date
+  - therapy_type
+  - minutes
+  primary_key:
+  - session_id
+  has_foreign_keys: true
+  short_description: Therapy delivered to a resident, in minutes. Recorded against
+    the resident rather than the admission, so therapy and claims meet only through
+    residents.
+- table: incidents
+  schema: main
+  object_type: table
+  keywords:
+  - incident
+  - fall
+  - safety
+  - severity
+  - event
+  - report
+  column_names:
+  - incident_id
+  - facility_id
+  - resident_id
+  - incident_date
+  - incident_type
+  - severity
+  primary_key:
+  - incident_id
+  has_foreign_keys: true
+  short_description: Reported safety incidents. Some are facility-level with no resident
+    attached, so resident_id is nullable.

@@ -1,38 +1,437 @@
 name: dbwhisper
 
-# Local dev stack: Postgres (with pgvector) + the API container.
+# Four profiles, so you only pay for what you are actually looking at.
+#
+#   core           postgres + pgvector init + api + worker + web.  This is the whole application.
+#   local-ai       ollama, for running the SQL model on your own machine with no API key.
+#   targets        a MariaDB and a PostgreSQL instance to *point DBWhisper at*, so you can enroll a
+#                  real database without exposing one you care about.
+#   observability  otel-collector + jaeger + prometheus + grafana, wired to the files in ops/.
+#
+# Profiles are additive and none of them is implied by another - `--profile observability` alone
+# starts Prometheus with nothing to scrape. Combine them:
+#
+#   docker compose --profile core up -d                          # the application
+#   docker compose --profile core --profile local-ai up -d       # + a local model
+#   docker compose --profile core --profile observability up -d  # + traces and metrics
+#
+# Nothing here needs a GPU. Ollama runs on CPU; the CPU-friendly model is named in docs/LOCAL_SETUP.md.
+#
+# Configuration: compose automatically interpolates from a `.env` file next to this one, which is
+# git-ignored. Everything below uses `${VAR:-default}`, so a clean clone with no `.env` still starts;
+# an API key or a secret key is picked up the moment you add it. `.env` is deliberately NOT mounted
+# into the containers with `env_file:` - interpolation keeps the value in one place, and a missing
+# file stays a non-event instead of becoming a startup error.
+
+# Postgres credentials are shared by three services (the database, the one-shot extension step and
+# the two application processes), so they are defined once.
+x-postgres-credentials: &postgres-credentials
+  POSTGRES_USER: ${DBW_POSTGRES_USER:-dbwhisper}
+  POSTGRES_PASSWORD: ${DBW_POSTGRES_PASSWORD:-dbwhisper}
+  POSTGRES_DB: ${DBW_POSTGRES_DB:-dbwhisper}
+
+# Everything the API and the worker both need. They run the same code against the same application
+# database; they differ only in which process starts.
+x-app-environment: &app-environment
+  # The application database: conversation memory, the connection registry, jobs, pgvector.
+  POSTGRES_CONNECTION_STRING: postgresql+psycopg://${DBW_POSTGRES_USER:-dbwhisper}:${DBW_POSTGRES_PASSWORD:-dbwhisper}@postgres:5432/${DBW_POSTGRES_DB:-dbwhisper}
+
+  # self_hosted is the mode a local stack wants: it permits enrolling your own databases and allows
+  # private-network targets (the `targets` profile lives on this compose network). demo mode would
+  # refuse both. See app/platform/modes.py for the full matrix.
+  APP_MODE: ${APP_MODE:-self_hosted}
+  APP_ENV: ${APP_ENV:-development}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+  # Required to *enroll* a database in self_hosted/production: stored DSNs are encrypted at rest.
+  # Generate one with:  uv run python -m app.platform.secrets generate-key
+  # The stack starts without it; enrollment is what fails, and it fails with that instruction.
+  DBW_SECRET_KEYS: ${DBW_SECRET_KEYS:-}
+
+  # Models. `auto` picks the best profile whose backing service or key is present; `fake` is the
+  # deterministic offline provider, which is how you exercise the pipeline with nothing installed.
+  MODEL_PROFILE: ${MODEL_PROFILE:-auto}
+  OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+  # `auto` = BAAI/bge-small-en-v1.5 on the CPU through fastembed. No key. Downloaded once into the
+  # shared model-cache volume below, which is why the first enrollment is slower than the rest.
+  EMBEDDING_PROFILE: ${EMBEDDING_PROFILE:-auto}
+
+  # Optional provider keys. Absent ones are simply not offered to the router.
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+  GROQ_API_KEY: ${GROQ_API_KEY:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+
+  # Observability. OTEL_ENABLED defaults off: with no collector running, an exporter that cannot
+  # connect retries on a background thread and logs about it, which is noise rather than signal.
+  # Start the observability profile with OTEL_ENABLED=true to turn it on.
+  OTEL_ENABLED: ${OTEL_ENABLED:-false}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+  METRICS_ENABLED: ${METRICS_ENABLED:-true}
+
+  API_AUTH_TOKENS: ${API_AUTH_TOKENS:-}
+
 services:
-  db:
+  # ── core ───────────────────────────────────────────────────────────────────────────────────────
+  postgres:
+    profiles: [core]
+    # pgvector's own image, not stock postgres: the extension binary has to exist before
+    # `CREATE EXTENSION vector` can succeed, and building it at runtime is not a thing.
     image: pgvector/pgvector:pg16
-    environment:
-      POSTGRES_USER: dbwhisper
-      POSTGRES_PASSWORD: dbwhisper
-      POSTGRES_DB: dbwhisper
+    environment: *postgres-credentials
     ports:
-      - "5432:5432"
+      # High host port on purpose - 5432 is usually already taken by a local PostgreSQL.
+      - "${DBW_POSTGRES_PORT:-55432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dbwhisper"]
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${DBW_POSTGRES_USER:-dbwhisper} -d ${DBW_POSTGRES_DB:-dbwhisper}
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 12
+      start_period: 10s
+    # Comfortable for a laptop and for the demo dataset. Raise it before enrolling a large schema.
+    deploy:
+      resources:
+        limits:
+          memory: 1g
 
-  app:
-    build: .
-    env_file:
-      - .env
+  pgvector-init:
+    profiles: [core]
+    # A one-shot, not an entrypoint hook. `docker-entrypoint-initdb.d` runs only on the *first* boot
+    # of a fresh volume, so an existing volume created before pgvector was needed would never get the
+    # extension and `/ready` would report `pgvector: false` forever. This runs on every `up`, is a
+    # no-op when the extension exists, and its exit code is what the api service waits on.
+    image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_CONNECTION_STRING: postgresql+psycopg://dbwhisper:dbwhisper@db:5432/dbwhisper
-      HOST: 0.0.0.0
-      PORT: 7860
-      APP_ENV: development
-      EMBEDDING_PROVIDER: google
-    ports:
-      - "8000:7860"
+      PGPASSWORD: ${DBW_POSTGRES_PASSWORD:-dbwhisper}
+    command:
+      - psql
+      - --host=postgres
+      - --username=${DBW_POSTGRES_USER:-dbwhisper}
+      - --dbname=${DBW_POSTGRES_DB:-dbwhisper}
+      - --command=CREATE EXTENSION IF NOT EXISTS vector
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
+    restart: "no"
+
+  migrate:
+    profiles: [core]
+    # Migrations run exactly once, in their own container, before either application process starts.
+    #
+    # This is not belt-and-braces. The API applies migrations on startup and the worker calls
+    # `ensure_tables()` on startup, and when both come up together the worker reaches its FK to
+    # `users` before the API has created it - observed here as
+    # `psycopg.errors.UndefinedTable: relation "users" does not exist`, with the worker dead and the
+    # API healthy. Serialising the schema change removes the race instead of relying on retry luck.
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: dbwhisper-api:local
+    environment: *app-environment
+    command:
+      - python
+      - -c
+      - |
+        import os
+        from db.migrate import current_revision, upgrade_to_head
+        url = os.environ["POSTGRES_CONNECTION_STRING"]
+        upgrade_to_head(url)
+        print("application database at revision", current_revision(url), flush=True)
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pgvector-init:
+        condition: service_completed_successfully
+    restart: "no"
+
+  api:
+    profiles: [core]
+    # The service name `api` is load-bearing: ops/prometheus.yml scrapes `api:8000`.
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: dbwhisper-api:local
+    environment:
+      <<: *app-environment
+      HOST: 0.0.0.0
+      PORT: "8000"
+    ports:
+      - "${DBW_API_PORT:-8000}:8000"
+    volumes:
+      # The fastembed model download, shared with the worker so it happens once.
+      - model-cache:/app/.cache
+      # Enrollment writes per-table YAML here. A bind mount rather than a named volume so you can
+      # read what the schema pipeline produced without exec'ing into a container.
+      - ./database_schemas:/app/database_schemas
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 40s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          # The ONNX embedding runtime is the memory floor here; 2g is comfortable, 1g is tight.
+          memory: 2g
+
+  worker:
+    profiles: [core]
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    image: dbwhisper-worker:local
+    environment:
+      <<: *app-environment
+      WORKER_POLL_INTERVAL_SECONDS: ${WORKER_POLL_INTERVAL_SECONDS:-2}
+    volumes:
+      - model-cache:/app/.cache
+      - ./database_schemas:/app/database_schemas
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    # The worker finishes the stage it is on before exiting, and a schema-documentation stage can
+    # take a while. The 10s default would SIGKILL it mid-stage and leave the lease to expire.
+    stop_grace_period: 60s
+    deploy:
+      # Scale with `docker compose --profile core up -d --scale worker=3`. Jobs are claimed with a
+      # lease, so replicas do not collide.
+      replicas: 1
+      resources:
+        limits:
+          memory: 2g
+
+  web:
+    profiles: [core]
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      # These are BUILD args, not environment variables, and the distinction has teeth here.
+      # `next.config.mjs` resolves the /api/* rewrite during `next build` and freezes the result
+      # into .next/routes-manifest.json, so the API target is chosen when the image is built and
+      # cannot be changed by restarting the container. Editing any value below therefore needs
+      #
+      #   docker compose --profile core up -d --build web
+      #
+      # and a plain `up -d` will silently keep serving the previous build. Decision (1) in
+      # web/Dockerfile has the full reasoning and a command that prints what an image really
+      # points at. Nothing secret goes here: every one of these is either a hostname on this
+      # private network or a NEXT_PUBLIC_* value that ships inside the browser bundle anyway.
+      args:
+        # `api` is the compose service name and 8000 is the port it listens on above. The browser
+        # never sees this - it calls the web origin and Next proxies server-side, which is why
+        # there is no CORS configuration anywhere in this stack.
+        API_PROXY_TARGET: http://api:8000
+        # Canonical origin for metadata, robots.txt and the sitemap. Must not be empty:
+        # src/lib/site.ts reads it with `??`, so an empty string beats the code default and
+        # `new URL("")` fails the build. If you change DBW_WEB_PORT, set this to match.
+        NEXT_PUBLIC_SITE_URL: ${DBW_WEB_SITE_URL:-http://localhost:3000}
+        # Show the login UI. Pair it with the backend's USER_AUTH_ENABLED or the console offers a
+        # sign-in that the API will reject.
+        NEXT_PUBLIC_AUTH_ENABLED: ${NEXT_PUBLIC_AUTH_ENABLED:-}
+        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+    image: dbwhisper-web:local
+    ports:
+      # 3000 is free here because grafana is published on 3001, not on its native 3000.
+      - "${DBW_WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    # Ordering, not correctness: the marketing page and the console shell render perfectly well
+    # with no backend, so this is not a hard requirement. It is here so that the first page load
+    # after `up` finds a working API instead of showing an unreachable-API badge for the ~40s the
+    # embedding runtime takes to warm up. Because `api` waits on `migrate`, which waits on
+    # postgres, this also makes the whole core profile come up in a deterministic order.
+    healthcheck:
+      # Same probe as the image's own HEALTHCHECK, restated so the port is pinned next to the
+      # port mapping above. /robots.txt is a real route on the Node server that renders no React
+      # and calls no API, so it reports on this container only - a probe against /api/* would
+      # turn a backend outage into an unhealthy frontend.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/robots.txt || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    # No volumes. Everything served is baked into the image, and the only writable state the app
+    # has is query history in the browser's localStorage.
+    deploy:
+      resources:
+        limits:
+          # `docker stats` reported 66 MiB for this image after serving /, /app, /app/schema and
+          # /robots.txt once each on a single container - one sample on one machine, not a load
+          # test. 512m is headroom for concurrent SSR, not a measured requirement.
+          memory: 512m
+
+  # ── local-ai ───────────────────────────────────────────────────────────────────────────────────
+  ollama:
+    profiles: [local-ai]
+    image: ollama/ollama:latest
+    ports:
+      - "${DBW_OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama:/root/.ollama
+    healthcheck:
+      # `ollama list` talks to the daemon, so this fails while the process is up but not yet
+      # answering - which is what "healthy" should mean for a model server.
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    # No `deploy.resources.reservations.devices` block: this stack is CPU-only by design. Add one
+    # yourself if you have an NVIDIA GPU and the container toolkit; nothing here depends on it.
+    #
+    # Memory: qwen2.5-coder:1.5b needs roughly 2 GB, :7b roughly 6 GB, :14b roughly 10 GB (Ollama's
+    # published quantised sizes, not measured here). No limit is set because the right number is
+    # whichever model you pull.
+
+  # ── targets: databases to point DBWhisper AT, never the application's own store ────────────────
+  mariadb-target:
+    profiles: [targets]
+    image: mariadb:11
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DBW_TARGET_ROOT_PASSWORD:-target-root}
+      MARIADB_DATABASE: ${DBW_TARGET_DB:-sample}
+      # Enroll with THIS user. In a real deployment it is where you would grant SELECT and nothing
+      # else - the policy engine is a filter, not a substitute for a least-privilege role.
+      MARIADB_USER: ${DBW_TARGET_USER:-reader}
+      MARIADB_PASSWORD: ${DBW_TARGET_PASSWORD:-reader}
+    ports:
+      - "${DBW_MARIADB_PORT:-13306}:3306"
+    volumes:
+      - mariadb-target-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  postgres-target:
+    profiles: [targets]
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DBW_TARGET_USER:-reader}
+      POSTGRES_PASSWORD: ${DBW_TARGET_PASSWORD:-reader}
+      POSTGRES_DB: ${DBW_TARGET_DB:-sample}
+    ports:
+      - "${DBW_POSTGRES_TARGET_PORT:-15432}:5432"
+    volumes:
+      - postgres-target-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${DBW_TARGET_USER:-reader} -d ${DBW_TARGET_DB:-sample}
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  # ── observability ──────────────────────────────────────────────────────────────────────────────
+  # Turn tracing on for the API when you start this profile:
+  #   OTEL_ENABLED=true docker compose --profile core --profile observability up -d
+  otel-collector:
+    profiles: [observability]
+    image: otel/opentelemetry-collector-contrib:0.115.1
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      # This config deletes db.statement and friends before export - a second copy of the scrubbing
+      # the application already does, running outside the process that could have the bug.
+      - ./ops/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "${DBW_OTLP_HTTP_PORT:-4318}:4318"
+      - "${DBW_OTLP_GRPC_PORT:-4317}:4317"
+    depends_on:
+      - jaeger
+    deploy:
+      resources:
+        limits:
+          # Matches the collector's own memory_limiter (384 MiB) with headroom for the runtime.
+          memory: 512m
+
+  jaeger:
+    profiles: [observability]
+    image: jaegertracing/all-in-one:1.62.0
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "${DBW_JAEGER_UI_PORT:-16686}:16686"
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  prometheus:
+    profiles: [observability]
+    image: prom/prometheus:v3.0.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # A local stack does not need months of history, and the default retention fills a laptop.
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./ops/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "${DBW_PROMETHEUS_PORT:-9090}:9090"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:9090/-/healthy || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  grafana:
+    profiles: [observability]
+    image: grafana/grafana:11.4.0
+    environment:
+      # Anonymous admin, because this is a local stack behind no network. Do not copy this block
+      # into anything reachable from outside your machine.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_USERS_DEFAULT_THEME: light
+    volumes:
+      # Provisioning (datasource UIDs) and the dashboards themselves are files in the repo, so a
+      # dashboard change shows up in a diff instead of living only in Grafana's database.
+      - ./ops/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./ops/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "${DBW_GRAFANA_PORT:-3001}:3000"
+    depends_on:
+      - prometheus
+    deploy:
+      resources:
+        limits:
+          memory: 512m
 
 volumes:
   pgdata:
+  # Shared by api and worker so the embedding model is downloaded once, not twice.
+  model-cache:
+  ollama:
+  mariadb-target-data:
+  postgres-target-data:
+  prometheus-data:
+  grafana-data:

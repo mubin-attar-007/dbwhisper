@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { resolveTruncation } from "@/src/lib/evidence";
+import { EvidenceStrip } from "../../components/EvidenceStrip";
 import { ResultsPanel } from "../../components/ResultsPanel";
 import { StagedProgress } from "../../components/StagedProgress";
 import { useWorkspace } from "../../components/WorkspaceProvider";
@@ -44,10 +46,31 @@ function humanizeError(message: string): string {
   return message.trim();
 }
 
+/**
+ * What a screen reader hears when a run finishes. Truncation is announced because a partial answer
+ * that sounds complete is worse than no answer at all.
+ */
+function announceResult(response: ReturnType<typeof useWorkspace>["response"]): string {
+  if (!response?.data) return "";
+  const rows = response.data.row_count;
+  const base = `Query complete: ${rows.toLocaleString()} row${rows === 1 ? "" : "s"}`;
+  return resolveTruncation(response).truncated
+    ? `${base}. Result truncated — more rows exist than are shown.`
+    : base;
+}
+
 export default function ConsolePage() {
   const { query, setQuery, loading, error, response, submit, cancel, runEditedSql } =
     useWorkspace();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const resultsRef = useRef<HTMLDivElement | null>(null);
+
+  // Keyboard and screen-reader users should land on the answer, not have to hunt back down the
+  // page for it. `preventScroll` keeps sighted users where they are; the region is tabIndex={-1}
+  // so it is focusable programmatically without entering the tab order.
+  useEffect(() => {
+    if (!loading && response) resultsRef.current?.focus({ preventScroll: true });
+  }, [loading, response]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -141,18 +164,16 @@ export default function ConsolePage() {
       </form>
 
       <div
+        ref={resultsRef}
+        tabIndex={-1}
+        role="region"
         aria-busy={loading}
-        className="space-y-6 motion-safe:animate-fade-up"
+        aria-label="Results"
+        className="space-y-6 outline-none motion-safe:animate-fade-up focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-4 focus-visible:ring-offset-slate-950"
         style={{ animationDelay: "150ms" }}
       >
-        <p role="status" className="sr-only">
-          {loading
-            ? "Running query…"
-            : response?.data
-              ? `Query complete: ${response.data.row_count.toLocaleString()} row${
-                  response.data.row_count === 1 ? "" : "s"
-                }`
-              : ""}
+        <p role="status" aria-live="polite" className="sr-only">
+          {loading ? "Running query…" : announceResult(response)}
         </p>
 
         {error && (
@@ -171,6 +192,9 @@ export default function ConsolePage() {
             >
               ↻ Try again
             </button>
+            {/* A refusal is evidence too — a reader deserves to see *which* layer stopped the
+                query, not just that something did. */}
+            {response && <EvidenceStrip response={response} />}
           </div>
         )}
 

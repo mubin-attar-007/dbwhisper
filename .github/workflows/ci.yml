@@ -1,82 +1,531 @@
 name: CI
 
+# Six jobs, and the split is deliberate: each one answers a different question, and a reviewer
+# looking at a red run should know from the job name alone what broke.
+#
+#   backend              does the Python code lint, type-check and pass its tests at the coverage floor?
+#   frontend             does the Next.js app lint, type-check, unit-test and build?
+#   postgres-integration do the migrations and pgvector actually work on PostgreSQL, not just SQLite?
+#   eval-smoke           does the evaluation corpus still run with zero unsafe executions?
+#   security             secrets, dependency advisories, static analysis, filesystem CVEs
+#   codeql               GitHub's own analysis, which needs its own permissions and language matrix
+#
+# **No model is ever downloaded here.** Every job that touches the pipeline sets MODEL_PROFILE=fake
+# and EMBEDDING_PROFILE=fake, which select deterministic offline providers. tests/conftest.py sets
+# the same defaults, so a job that forgets is still offline - the env below makes the intent explicit
+# rather than relying on that.
+
 on:
   push:
     branches: [main, master]
   pull_request:
+  schedule:
+    # Weekly, so dependency advisories and the Trivy database are re-checked on a repository that
+    # nobody has pushed to. A CVE published after the last merge should not wait for the next one.
+    - cron: "17 6 * * 1"
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Least privilege by default; the two jobs that need more raise it themselves.
+permissions:
+  contents: read
+
+env:
+  UV_VERSION: "0.11.6"
+  # Offline, deterministic providers. See the header.
+  MODEL_PROFILE: fake
+  EMBEDDING_PROFILE: fake
+
 jobs:
+  # ────────────────────────────────────────────────────────────────────────────────────────────────
   backend:
+    name: backend (lint, types, tests)
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
-          version: "0.11.6"
+          version: ${{ env.UV_VERSION }}
           enable-cache: true
 
       - name: Install Python 3.13
         run: uv python install 3.13
 
-      - name: Sync deps (base + dev; lean, no torch)
+      - name: Sync deps (base + dev; the local-embeddings extra is not installed, so no torch)
         run: uv sync --frozen
 
       - name: Ruff lint
-        run: uv run ruff check app db tests run.py
+        run: uv run ruff check app db tests scripts run.py
 
       - name: Ruff format check
-        run: uv run ruff format --check app db tests run.py
+        run: uv run ruff format --check app db tests scripts run.py
 
-      - name: Tests (with coverage gate)
-        run: uv run pytest --cov=app --cov=db --cov-report=term-missing --cov-fail-under=35
+      # Several security properties of this codebase are structural — the model layer cannot reach a
+      # database, the policy engine cannot consult a model, no credential-bearing module is
+      # importable from the checkpointed graph. A docstring saying so is worth little; an import
+      # graph that makes it impossible is worth a lot. Contracts live in pyproject.toml.
+      - name: Architectural contracts
+        run: uv run lint-imports
 
-      - name: Dependency vulnerability audit (informational; Dependabot drives the fixes)
-        run: uv run pip-audit
-        continue-on-error: true
+      # ── Type checking: a real gate on the packages that are clean, a ratchet on the rest ────────
+      #
+      # `mypy app db || true` was not a gate - the `|| true` swallowed every error, so the step was
+      # green whatever happened. It is replaced by two steps that between them cannot be passed by
+      # ignoring the output.
+      - name: Type check - gate (these packages must stay clean)
+        # Measured 2026-08-24 with `uv run mypy --follow-imports=silent <pkg>` on this branch:
+        # app/embeddings 0, app/analysis 0, app/observability 0, db/migrate.py 0.
+        # Add a package here the moment it reaches zero; never remove one to make a build pass.
+        # --follow-imports=silent is what the measurement above used, and it is the whole point:
+        # without it mypy reports errors from every module these packages *import*, so the gate
+        # would fail on type debt that lives outside the packages it is meant to gate.
+        run: >-
+          uv run mypy --follow-imports=silent
+          app/embeddings app/analysis app/observability db/migrate.py
 
-      - name: Type check (informational — type-debt burn-down in progress)
-        run: uv run mypy app db || true
+      - name: Type check - ratchet (the type debt may shrink, never grow)
+        # The rest of the tree carries inherited type debt. Fixing all of it is a project in itself;
+        # letting it grow is not acceptable either. So the count is the gate.
+        #
+        # Baseline re-measured on this branch, 2026-08-24, with exactly the command below:
+        #   uv run mypy app db 2>&1 | grep -cE 'error:'  ->  200
+        # If you legitimately need to raise it, say why in the commit message.
+        env:
+          MYPY_ERROR_BUDGET: "200"
+        run: |
+          set -uo pipefail
+          uv run mypy app db > mypy-report.txt 2>&1 || true
+          count=$(grep -cE 'error:' mypy-report.txt || true)
+          echo "mypy errors: ${count} (budget ${MYPY_ERROR_BUDGET})"
+          tail -n 20 mypy-report.txt
+          if [ "${count}" -gt "${MYPY_ERROR_BUDGET}" ]; then
+            echo "::error::mypy errors rose from ${MYPY_ERROR_BUDGET} to ${count}. Fix the new ones."
+            exit 1
+          fi
+          if [ "${count}" -lt "${MYPY_ERROR_BUDGET}" ]; then
+            echo "::notice::mypy errors fell to ${count}. Lower MYPY_ERROR_BUDGET to lock the win in."
+          fi
 
+      - name: Tests (coverage floor 65%)
+        # The floor is a floor, not a target: actual coverage is higher, and the gap is deliberate
+        # slack so an unrelated refactor does not fail the build. Raise it when it gets embarrassing.
+        run: uv run pytest --cov=app --cov=db --cov-report=term-missing --cov-fail-under=65
+
+      - name: Upload mypy report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mypy-report
+          path: mypy-report.txt
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # ────────────────────────────────────────────────────────────────────────────────────────────────
   frontend:
+    name: frontend (lint, types, tests, build)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: web
+    # playwright.config.ts keys forbidOnly, retries and workers off CI; without this a
+    # stray test.only would pass silently.
+    env:
+      CI: "true"
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          # Matches web/Dockerfile (node:22-alpine3.22). Testing on 20 while shipping 22
+          # means CI never exercises the runtime users actually get.
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: web/package-lock.json
+
       - run: npm ci
+
       - name: Lint
         run: npm run lint
+
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
       - name: Build
         run: npm run build
-      - name: npm audit (informational)
+
+      # The e2e suite needs no backend and no database: every /api/* call is intercepted with
+      # page.route, and API_PROXY_TARGET points at a closed port so an unstubbed request fails
+      # loudly rather than silently reaching something real.
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: npm run e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: web/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
+
+      # Nothing else builds this image, so without a gate a change to web/Dockerfile or to the
+      # standalone output setting would break the container silently and only be found on deploy.
+      - name: Build the web image
+        working-directory: .
+        run: docker build -f web/Dockerfile -t dbwhisper-web:ci web
+
+      - name: npm audit
+        # Informational, like pip-audit below and for the same reason: an advisory published against
+        # a transitive dependency should be visible immediately, but it should not turn a build red
+        # for a change that did not cause it. Dependabot opens the PR that fixes it.
         run: npm audit --audit-level=high
         continue-on-error: true
 
-  secrets-scan:
+  # ────────────────────────────────────────────────────────────────────────────────────────────────
+  postgres-integration:
+    name: postgres-integration (alembic + pgvector)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # The audit found that CI never touched PostgreSQL: every test runs on SQLite, so Alembic on
+    # PostgreSQL and the pgvector extension were exercised for the first time in production. This job
+    # closes that. It is a separate job because it is the only one that needs a service container.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: dbwhisper
+          POSTGRES_PASSWORD: dbwhisper
+          POSTGRES_DB: dbwhisper_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dbwhisper -d dbwhisper_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      POSTGRES_CONNECTION_STRING: postgresql+psycopg://dbwhisper:dbwhisper@localhost:5432/dbwhisper_ci
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Install Python 3.13
+        run: uv python install 3.13
+
+      - name: Sync deps
+        run: uv sync --frozen
+
+      - name: Alembic on PostgreSQL - fresh upgrade, idempotent re-run, expected tables
+        # Inline rather than a committed script so the whole gate is readable in one file. It drops
+        # and recreates `public` first, so the check is a genuine cold start every run.
+        env:
+          PYTHONPATH: .
+        run: |
+          uv run python - <<'PYCHECK'
+          """Prove that Alembic works on PostgreSQL, not only on the SQLite the unit tests use."""
+
+          from __future__ import annotations
+
+          import os
+          import sys
+
+          from sqlalchemy import create_engine, inspect, text
+
+          from db.migrate import current_revision, upgrade_to_head
+
+          EXPECTED_TABLES = {"users", "user_sessions", "Database_config", "verified_queries"}
+          URL = os.environ["POSTGRES_CONNECTION_STRING"]
+
+
+          def tables() -> set[str]:
+              engine = create_engine(URL)
+              try:
+                  return set(inspect(engine).get_table_names())
+              finally:
+                  engine.dispose()
+
+
+          def main() -> int:
+              engine = create_engine(URL)
+              with engine.begin() as conn:
+                  conn.execute(text("DROP SCHEMA public CASCADE"))
+                  conn.execute(text("CREATE SCHEMA public"))
+              engine.dispose()
+
+              upgrade_to_head(URL)
+              first = current_revision(URL)
+              print(f"fresh upgrade -> revision {first}", flush=True)
+
+              upgrade_to_head(URL)
+              second = current_revision(URL)
+              print(f"re-run        -> revision {second}", flush=True)
+
+              present = tables()
+              missing = EXPECTED_TABLES - present
+              failures: list[str] = []
+              if first is None:
+                  failures.append("no alembic revision was stamped")
+              if first != second:
+                  failures.append(f"re-running the upgrade moved the revision {first} -> {second}")
+              if missing:
+                  failures.append(f"missing tables after upgrade: {sorted(missing)}")
+
+              if failures:
+                  for line in failures:
+                      print(f"FAIL: {line}", file=sys.stderr)
+                  return 1
+              print(f"OK: {len(present)} tables, revision {first}, idempotent.", flush=True)
+              return 0
+
+
+          if __name__ == "__main__":
+              raise SystemExit(main())
+          PYCHECK
+
+      - name: pgvector - extension, index and a nearest-neighbour query
+        # Not just `CREATE EXTENSION`: an ivfflat cosine index over 384-dimensional vectors and a
+        # query whose answer is known. Building the index is where a broken pgvector actually fails.
+        env:
+          PYTHONPATH: .
+        run: |
+          uv run python - <<'PYCHECK'
+          """Prove the pgvector extension is usable: create, index, and query by cosine distance."""
+
+          from __future__ import annotations
+
+          import os
+          import sys
+
+          from sqlalchemy import create_engine, text
+
+          URL = os.environ["POSTGRES_CONNECTION_STRING"]
+          DIM = 384  # BAAI/bge-small-en-v1.5, the default local embedding model.
+
+
+          def basis_vector(axis: int) -> str:
+              """A unit vector along one axis. Never the zero vector: ivfflat's cosine index rejects it."""
+              values = ["0"] * DIM
+              values[axis] = "1"
+              return "[" + ",".join(values) + "]"
+
+
+          def main() -> int:
+              engine = create_engine(URL)
+              installed = None
+              nearest = None
+              try:
+                  with engine.begin() as conn:
+                      conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+                      installed = conn.execute(
+                          text("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
+                      ).scalar()
+                      print(f"pgvector {installed}", flush=True)
+
+                      conn.execute(text("DROP TABLE IF EXISTS ci_vector_probe"))
+                      conn.execute(text(f"CREATE TABLE ci_vector_probe (id int primary key, v vector({DIM}))"))
+                      for ident, axis in ((1, 0), (2, 1), (3, 2)):
+                          conn.execute(
+                              text("INSERT INTO ci_vector_probe (id, v) VALUES (:i, CAST(:v AS vector))"),
+                              {"i": ident, "v": basis_vector(axis)},
+                          )
+                      conn.execute(
+                          text(
+                              "CREATE INDEX ci_vector_probe_ivfflat ON ci_vector_probe "
+                              "USING ivfflat (v vector_cosine_ops) WITH (lists = 1)"
+                          )
+                      )
+                      # Closest to axis 0, so row 1 must win. `<=>` is cosine distance.
+                      probe = ["0"] * DIM
+                      probe[0] = "0.9"
+                      probe[1] = "0.1"
+                      nearest = conn.execute(
+                          text("SELECT id FROM ci_vector_probe ORDER BY v <=> CAST(:v AS vector) LIMIT 1"),
+                          {"v": "[" + ",".join(probe) + "]"},
+                      ).scalar()
+                      conn.execute(text("DROP TABLE ci_vector_probe"))
+              finally:
+                  engine.dispose()
+
+              if installed is None:
+                  print("FAIL: the vector extension is not installed", file=sys.stderr)
+                  return 1
+              if nearest != 1:
+                  print(f"FAIL: cosine nearest neighbour was {nearest}, expected 1", file=sys.stderr)
+                  return 1
+              print("OK: extension present, ivfflat index built, cosine search returned the right row.")
+              return 0
+
+
+          if __name__ == "__main__":
+              raise SystemExit(main())
+          PYCHECK
+
+      - name: SQLite migration tests still pass (the same code, a different dialect)
+        run: uv run pytest tests/test_migrations.py -q
+
+  # ────────────────────────────────────────────────────────────────────────────────────────────────
+  eval-smoke:
+    name: eval-smoke (offline oracle run)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Install Python 3.13
+        run: uv python install 3.13
+
+      - name: Sync deps
+        run: uv sync --frozen
+
+      - name: Evaluation smoke run
+        # The exit code is the gate: non-zero means a case whose contract is to be declined returned
+        # rows, or an executed statement failed an independent re-check by the policy engine. It runs
+        # against SQLite fixtures built from the repository with the oracle provider, so it needs no
+        # credentials, no network and no model - see docs/EVALUATION.md.
+        env:
+          EVAL_LABEL: ci-${{ github.run_number }}
+        run: bash scripts/eval-smoke.sh --out evaluation/results
+
+      - name: Upload evaluation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-smoke-report
+          path: evaluation/results/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  # ────────────────────────────────────────────────────────────────────────────────────────────────
+  security:
+    name: security (secrets, deps, SAST, filesystem)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
         with:
+          # gitleaks scans history, not just the diff: a secret removed in a later commit is still
+          # a leaked secret.
           fetch-depth: 0
-      # License-free gitleaks BINARY (matches tradepulse/crownwager). The v2 action crashes when
-      # scanning pull requests (ScanPullRequest), turning every PR red; the binary works on push + PR.
+
       - name: Install gitleaks
+        # The licence-free binary rather than the v2 action, which crashes on pull requests
+        # (ScanPullRequest) and turns every PR red. The binary works on push and PR alike.
         run: |
           curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz \
             | sudo tar -xz -C /usr/local/bin gitleaks
+
       - name: Secret scan (full history)
+        # Blocking. A committed credential is not a warning.
         run: gitleaks detect --source . --redact --no-banner -v
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Install Python 3.13
+        run: uv python install 3.13
+
+      - name: Sync deps
+        run: uv sync --frozen
+
+      - name: Bandit (Python static analysis)
+        # `uvx` runs the tool in a throwaway environment, so bandit never becomes a project
+        # dependency. `-ll -ii` blocks at MEDIUM severity and MEDIUM confidence: low-confidence
+        # findings on this codebase are dominated by B608 ("possible SQL injection") pointed at code
+        # whose entire job is to build and then reject SQL, and a gate that cries wolf gets switched
+        # off. Anything it does flag is fixed or suppressed at the line with a stated reason, never
+        # by loosening this threshold.
+        run: uvx bandit@1.8.0 -r app db -ll -ii -q
+
+      - name: Bandit (full report, informational)
+        run: uvx bandit@1.8.0 -r app db -f txt -o bandit-report.txt || true
+
+      - name: Dependency advisories (pip-audit)
+        # Informational on purpose, and this is a real trade-off rather than laziness: at the time of
+        # writing pip-audit reports advisories in transitive pins that the lockfile cannot move
+        # without a dependency bump. Making it blocking would mean CI turns red on a schedule for
+        # changes nobody made. It runs on every build and weekly on a cron so the list stays visible,
+        # and Dependabot raises the PRs that shorten it.
+        run: uv run pip-audit --progress-spinner off
+        continue-on-error: true
+
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          # Unfixed vulnerabilities are noise in a gate: there is no action to take.
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+          exit-code: "0"
+          format: table
+          output: trivy-report.txt
+        # Report-only for the same reason as pip-audit. The scheduled run is what keeps it honest.
+        continue-on-error: true
+
+      - name: Upload security reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: |
+            bandit-report.txt
+            trivy-report.txt
+          if-no-files-found: ignore
+          retention-days: 30
+
+  # ────────────────────────────────────────────────────────────────────────────────────────────────
+  codeql:
+    name: codeql (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # CodeQL lives in its own job rather than inside `security` because it needs
+    # `security-events: write` to upload results and a matrix over languages. Folding it in would
+    # give the whole security job write access to the security tab for no reason.
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python, javascript-typescript]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:${{ matrix.language }}

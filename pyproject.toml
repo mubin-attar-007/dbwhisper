@@ -17,33 +17,40 @@ dependencies = [
     "pyyaml>=6.0.2",
     "numpy>=2.3.4",
     "pandas>=2.3.3",
-    "matplotlib>=3.10.7",
     "networkx>=3.5",
     "tiktoken>=0.12.0",
     # LLM providers (fallback chain in app/agent/chain.py)
     "langchain>=1.0.5",
     "langchain-core>=1.0.4",
-    "langchain-community>=0.4.1",
     "langgraph>=1.0.3",
     "langchain-groq>=1.0.0",
     "langchain-google-genai>=3.0.3",
     "langchain-openai>=1.0.3",
     "langchain-deepseek>=1.0.1",
     "langchain-anthropic>=1.1.0",
-    "groq>=0.33.0",
     "langsmith>=0.4.45",
     # Vector store + conversation checkpointing (Postgres / pgvector)
     "langchain-postgres>=0.0.16",
     "langgraph-checkpoint[postgres]>=3.0.1",
     "langgraph-checkpoint-postgres>=3.0.1",
     "psycopg[binary,pool]>=3.2.12",
-    "psycopg2-binary>=2.9.11",
     # Target-database drivers
     "pyodbc>=5.3.0",
     "pymysql>=1.1.2",
-    "mysql-connector-python>=9.5.0",
     "sentry-sdk[fastapi]>=2.7",
     "argon2-cffi>=25.1.0",
+    "sqlglot>=27",
+    "alembic>=1.14",
+    "cryptography>=44",
+    "httpx>=0.27",
+    "prometheus-client>=0.21",
+    "opentelemetry-api>=1.29",
+    "opentelemetry-sdk>=1.29",
+    "opentelemetry-exporter-otlp-proto-http>=1.29",
+    "opentelemetry-instrumentation-fastapi>=0.50b0",
+    "fastembed>=0.5",
+    "langchain-text-splitters>=0.3",
+    "langgraph-checkpoint-sqlite>=2.0",
 ]
 
 [project.optional-dependencies]
@@ -73,6 +80,9 @@ dev = [
     "types-pyyaml>=6.0.0",
     "pytest-cov>=7.1.0",
     "pip-audit>=2.10.0",
+    "hypothesis>=6.120",
+    "import-linter>=2.1",
+    "pytest-xdist>=3.6",
 ]
 
 [tool.uv]
@@ -116,3 +126,49 @@ pythonpath = ["."]
 addopts = "-q"
 asyncio_mode = "auto"
 filterwarnings = ["ignore::DeprecationWarning"]
+
+# ── Architectural contracts ──────────────────────────────────────────────────────────────────────
+# Several of this project's security properties are structural: they hold because one package cannot
+# reach another, not because a reviewer remembered. A docstring saying "the model layer never touches
+# a database" is worth very little; an import graph that makes it impossible is worth a lot. These
+# contracts are the machine-checkable form of the architecture in docs/v2/TARGET_ARCHITECTURE.md and
+# the ADRs, and they run in CI (`uv run lint-imports`).
+[tool.importlinter]
+root_packages = ["app", "db"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "The model layer cannot reach a database"
+type = "forbidden"
+source_modules = ["app.llm", "app.embeddings"]
+forbidden_modules = ["app.execution", "db", "sqlalchemy", "psycopg", "pymysql", "sqlite3", "pyodbc"]
+# A provider that could open a connection is one prompt-injection away from being asked to. The
+# model layer returns text; something else decides whether that text ever reaches a database.
+
+[[tool.importlinter.contracts]]
+name = "The policy engine decides on its own"
+type = "forbidden"
+source_modules = ["app.sqlpolicy"]
+forbidden_modules = ["app.execution", "app.llm", "app.graph", "app.api", "app.agent", "db"]
+# "Never trust the model to decide whether its own query is safe" — expressed structurally. The
+# engine cannot consult a model or a connection even by accident, so its verdict is a pure function
+# of the statement and the schema scope, which is also what makes the adversarial corpus meaningful.
+
+[[tool.importlinter.contracts]]
+name = "No credential reaches the graph"
+type = "forbidden"
+source_modules = ["app.graph", "app.analysis", "app.retrieval"]
+forbidden_modules = ["db.database_manager", "app.platform.connection_secrets"]
+# Graph state is checkpointed to disk. It carries a source_id; credentials are resolved through
+# GraphDeps at execution time and never enter state. tests/graph asserts the runtime half of this;
+# this is the structural half.
+
+[[tool.importlinter.contracts]]
+name = "Observability is a leaf"
+type = "forbidden"
+source_modules = ["app.observability"]
+forbidden_modules = [
+    "app.api", "app.graph", "app.execution", "app.llm", "app.jobs", "app.sqlpolicy", "app.retrieval",
+]
+# Instrumentation that imports the thing it instruments causes import cycles and, worse, tempts
+# someone to put a result row on a span. It may depend on configuration and nothing else.

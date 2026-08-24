@@ -1,18 +1,42 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SITE_URL } from "@/src/lib/site";
 import { Icon, type IconName } from "../components/Icon";
+
+/**
+ * The public marketing page.
+ *
+ * Every number and safety claim here is governed by `docs/v2/CLAIM_AUDIT.md`. Two rules from that
+ * document shape the copy and should survive any redesign:
+ *
+ *  1. A percentage never appears without its numerator, denominator and the version of the thing
+ *     that produced it. The proof strip therefore reads "343 / 343" against a named corpus and a
+ *     named policy version, not "100%".
+ *  2. The page names mechanisms, not outcomes. The policy engine *checks*, *admits* and *rejects*;
+ *     it does not "prove", and nothing is "always" or "never" unless a test enumerates the space.
+ *
+ * The previous version of this file carried an "82% execution accuracy" card and a "100%
+ * fail-closed" card. Both were retired on 2026-08-24. The first was measured under a prompt that has
+ * since been deleted and its harness is untracked, so a stranger cannot reproduce it. The second
+ * named a property its own run never observed: in all four recorded unsafe rows the model declined
+ * in prose and no statement ever reached the validator, so that run contains zero observations of
+ * the validator blocking anything. See CLAIM_AUDIT §3.2 and §4.4.
+ */
 
 export const metadata: Metadata = {
   title: "DBWhisper — Ask your database anything",
   description:
-    "Connect Postgres or MySQL and query in plain English. DBWhisper writes safe, read-only SQL, runs it, and shows the answer with a chart. No SQL required.",
+    "Connect PostgreSQL, MySQL or SQL Server and query in plain English. DBWhisper writes read-only SQL, checks it against an AST policy engine, runs it, and shows the answer with a chart.",
 };
+
+/** One engine list, used everywhere on the page so the copy cannot contradict itself. */
+const ENGINES = "PostgreSQL, MySQL and SQL Server (SQLite for local runs)";
 
 const STEPS = [
   {
     n: "1",
-    title: "Connect your database",
-    body: "Point DBWhisper at Postgres or MySQL with a read-only role. It introspects the schema and learns your tables.",
+    title: "Enroll a database",
+    body: `Point DBWhisper at ${ENGINES} using a read-only role. Enrollment is an API call (POST /schemas/enroll) that introspects the schema through SQLAlchemy reflection; the hosted demo ships with a sample database already enrolled.`,
   },
   {
     n: "2",
@@ -21,8 +45,8 @@ const STEPS = [
   },
   {
     n: "3",
-    title: "Get SQL + results you trust",
-    body: "It writes validated read-only SQL, shows it, runs it, and returns a table, a chart, and a plain-English summary.",
+    title: "Get SQL + results you can check",
+    body: "It writes read-only SQL, runs it through the policy engine, shows you the statement, and returns a table, a chart, and a plain-English summary.",
   },
 ];
 
@@ -30,7 +54,7 @@ const FEATURES: { icon: IconName; title: string; body: string }[] = [
   {
     icon: "table",
     title: "SQL you can read & edit",
-    body: "The generated SQL is always shown — and you can edit and re-run it, still through the read-only validator.",
+    body: "The generated SQL is shown with every answer — and you can edit it and re-run it, still through the same read-only policy engine.",
   },
   {
     icon: "spark",
@@ -45,48 +69,53 @@ const FEATURES: { icon: IconName; title: string; body: string }[] = [
   {
     icon: "database",
     title: "Multi-engine & exportable",
-    body: "Postgres · MySQL · SQL Server. Export any result to CSV, JSON, or Markdown in one click.",
+    body: "PostgreSQL · MySQL · SQL Server. Download any result as CSV or JSON, or copy it as a Markdown table.",
   },
 ];
 
 const TRUST: { icon: IconName; title: string; body: string }[] = [
   {
     icon: "database",
-    title: "Read-only by construction",
-    body: "Every query — generated or hand-edited — passes a read-only validator. Writes, drops, and DDL are always rejected.",
+    title: "Read-only enforced in code",
+    body: "Generated and hand-edited SQL take the same path through the policy engine; writes, drops and DDL are rejected there. Execution runs through a least-privilege database role inside a transaction that is rolled back.",
   },
   {
     icon: "table",
-    title: "SQL shown before it runs",
-    body: "You always see the exact SQL before results. Nothing touches your data that you can't inspect first.",
+    title: "The exact SQL, every time",
+    body: "Every answer ships with the statement that produced it, so you can read it, edit it and re-run it through the same policy check.",
   },
   {
     icon: "star",
     title: "Least-privilege connections",
-    body: "Connect with a read-only database role; DBWhisper refuses to enroll a writable connection.",
+    body: "Connect with a read-only database role; DBWhisper refuses to enroll a connection that probes as writable. The probe is a backstop for the role you configure, not a substitute for it.",
   },
   {
     icon: "spark",
     title: "No black-box code execution",
-    body: "The model outputs SQL and structured JSON — never arbitrary code that gets executed on your server.",
+    body: "The model emits SQL and structured JSON, and calls a fixed set of named retrieval tools. There is no path that executes model-authored code on the server.",
   },
 ];
 
+/**
+ * The proof strip. Every figure comes from CLAIM_AUDIT §4.1 and is reproducible from a clean
+ * checkout with one command — that is the bar for putting a number on this page. Values carry
+ * their own denominators so no card can be read as a bare percentage.
+ */
 const PROOF: { value: string; label: string; note: string }[] = [
   {
-    value: "82%",
-    label: "Execution accuracy",
-    note: "18 of 22 golden business questions returned the exact correct result set.",
+    value: "343 / 343",
+    label: "Adversarial deny cases denied",
+    note: "Every statement in the deny corpus — 343 case×dialect combinations drawn from 255 cases — was denied by policy sql_policy@2.0.0.",
   },
   {
-    value: "100%",
-    label: "Fail-closed on unsafe input",
-    note: "All 4 unsafe or out-of-scope prompts were refused — never a hallucinated query.",
+    value: "210 / 210",
+    label: "Benign queries still admitted",
+    note: "The corpus checks the other direction too: 210 legitimate read-only expansions were admitted, so the deny figure is not bought with false positives.",
   },
   {
     value: "0",
-    label: "Writes to your data",
-    note: "Every query — generated or hand-edited — passes a read-only validator. Writes & DDL are always rejected.",
+    label: "Write paths to your data",
+    note: "Generated and hand-edited SQL take one route: an AST policy check, then execution inside a transaction that is rolled back. On PostgreSQL, MySQL and SQLite that transaction is opened read-only at the database.",
   },
 ];
 
@@ -100,41 +129,48 @@ const PIPELINE: { icon: IconName; title: string; tag?: string; body: string }[] 
     icon: "table",
     title: "Relevant tables are retrieved",
     tag: "pgvector",
-    body: "Embedding similarity pulls only the tables your question needs, so the model sees a focused schema — not a 200-table dump. It scales to large databases and cuts invented columns.",
+    body: "Embedding similarity pulls the tables a question needs, so the model sees a focused schema instead of the whole catalog — smaller prompts and fewer invented columns. Retrieval is top-k over per-table summaries; no benchmark on a large schema has been published yet.",
   },
   {
     icon: "code",
     title: "SQL is generated",
-    tag: "LangGraph agent",
-    body: "A LangGraph agent writes the query, with automatic fallback across six LLM providers (OpenAI → OpenRouter → DeepSeek → Groq → Anthropic → Gemini).",
+    tag: "tool-calling agent",
+    body: "An LLM agent writes the query with the retrieved tables in context, retrying across whichever of six configured providers have credentials (OpenAI → OpenRouter → DeepSeek → Groq → Anthropic → Gemini).",
   },
   {
     icon: "shield",
-    title: "It’s proven read-only",
-    tag: "fail-closed validator",
-    body: "Before anything runs, a deterministic validator inspects the SQL. Writes, DDL, and multi-statements are rejected — this is code between generation and execution, not a prompt the model can ignore.",
+    title: "Checked read-only before it runs",
+    tag: "sql_policy@2.0.0",
+    body: "A SQLGlot AST policy engine parses the statement and rejects anything that is not a single read-only SELECT — writes, DDL, multi-statements, system-catalog access and blocked functions. This is code between generation and execution, not an instruction in the prompt.",
   },
   {
     icon: "database",
     title: "Run & explained",
-    body: "The query runs on your read-only connection and returns a sortable table, an auto-selected chart, and a one-line plain-English summary.",
+    body: "The statement runs through one audited execution path — least-privilege role, statement timeout, row cap, rolled-back transaction — and comes back as a sortable table, an auto-selected chart, and a one-line summary.",
   },
 ];
 
 const DECISIONS: { title: string; body: string }[] = [
   {
     title: "Schema-grounded, not schema-dumped",
-    body: "Instead of pasting your whole schema into every prompt, DBWhisper retrieves only the relevant tables via pgvector embeddings. Smaller prompts, fewer hallucinated columns, and it works on databases with hundreds of tables.",
+    body: "Instead of pasting a whole schema into every prompt, DBWhisper retrieves only the relevant tables via pgvector embeddings. Smaller prompts, fewer hallucinated columns — and the tables the statement actually touched come back with the answer, so you can check the grounding yourself.",
   },
   {
     title: "Fail-closed, not prompt-please",
-    body: "“Read-only” isn’t an instruction the model might ignore — it’s a deterministic validator sitting between generation and execution. If a query can’t be proven read-only, it never runs.",
+    body: "“Read-only” is not an instruction the model might ignore — it is a policy engine between generation and execution. A statement the engine will not classify as read-only is not executed. It is a structural filter over a parsed AST, not a proof, so pair it with a least-privilege role.",
   },
   {
-    title: "Six providers, always answers",
-    body: "If one provider is down or rate-limited, the agent falls through OpenRouter, DeepSeek, Groq, and Anthropic. Gemini’s free tier is always wired as the final fallback, so the live demo never goes dark.",
+    title: "Provider fallback, not a single point of failure",
+    body: "Six providers are wired in priority order (OpenAI → OpenRouter → DeepSeek → Groq → Anthropic → Gemini); a generation call that fails or is rate-limited moves to the next provider that has credentials, so how many are live depends on which keys you set. The v2 router goes further — it picks a model by the capability a step needs and opens a circuit breaker on one that keeps failing — and its local Ollama profile needs no API key at all.",
+  },
+  {
+    title: "A real graph, with real pauses",
+    body: "The /v2 API runs the workflow as a LangGraph StateGraph — retrieve → understand → generate → validate → execute → verify → summarize — where a repair loop re-enters validation instead of trusting its own fix. Clarification and approval use LangGraph interrupts against a durable checkpointer, so a run genuinely pauses and resumes after a restart. The console above still calls the v1 tool-calling endpoint.",
   },
 ];
+
+/** Shown in the mock's URL chrome. Derived so it can never name a domain the project does not use. */
+const MOCK_URL = `${SITE_URL.replace(/^https?:\/\//, "")}/app`;
 
 function SectionTitle({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
@@ -160,7 +196,7 @@ function ProductMock() {
         <span className="h-2.5 w-2.5 rounded-full bg-amber-400/70" />
         <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/70" />
         <span className="ml-3 truncate rounded bg-slate-800/70 px-2 py-0.5 font-mono text-[11px] text-slate-400">
-          dbwhisper.app/app
+          {MOCK_URL}
         </span>
       </div>
       <div className="space-y-3 p-4">
@@ -175,7 +211,7 @@ function ProductMock() {
         </div>
         <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-3">
           <span className="rounded-full border border-emerald-700/60 bg-emerald-900/30 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
-            validation passed
+            policy: allow
           </span>
           <pre className="mt-2 overflow-x-auto font-mono text-[11px] leading-relaxed text-slate-300">
             <code>{`SELECT p.name, SUM(oi.qty * oi.price) AS revenue
@@ -260,8 +296,9 @@ export default function Landing() {
               Ask your database anything.
             </h1>
             <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-slate-400 sm:text-lg">
-              Connect Postgres or MySQL and query in plain English. DBWhisper writes safe,
-              read-only SQL, runs it, and shows the answer with a chart — no SQL required.
+              Connect PostgreSQL, MySQL or SQL Server and query in plain English. DBWhisper writes
+              read-only SQL, checks it before it runs, and shows the answer with a chart — no SQL
+              required.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link href="/app" className={PRIMARY_CTA}>
@@ -281,7 +318,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Proof strip — measured, not claimed */}
+      {/* Proof strip — reproducible policy-corpus figures, provenance in CLAIM_AUDIT §4.1 */}
       <section aria-labelledby="proof-heading" className="border-y border-slate-800/60 bg-slate-950/40">
         <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
           <div className="mx-auto max-w-2xl text-center">
@@ -292,7 +329,7 @@ export default function Landing() {
               id="proof-heading"
               className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl"
             >
-              Evaluated on a real golden set
+              Evaluated on an adversarial policy corpus
             </h2>
           </div>
           <dl className="mt-10 grid gap-4 sm:grid-cols-3">
@@ -312,11 +349,48 @@ export default function Landing() {
               </div>
             ))}
           </dl>
-          <p className="mx-auto mt-6 max-w-2xl text-center text-xs leading-relaxed text-slate-400">
-            Golden-set eval: 22 answerable + 4 unsafe / out-of-scope business questions, run end-to-end
-            against a Postgres store with a read-only role. Execution accuracy = exact result-set match
-            (order-insensitive), Spider-style.
-          </p>
+
+          <div className="mx-auto mt-8 max-w-3xl space-y-4 text-xs leading-relaxed text-slate-400">
+            <p>
+              <span className="font-semibold text-slate-300">Provenance.</span> Corpus{" "}
+              <code className="rounded bg-slate-900 px-1 font-mono text-[11px] text-slate-300">
+                app/evaluation/datasets/adversarial/sql_policy_cases.yaml
+              </code>{" "}
+              v2.0.0 — 255 distinct cases expanded across PostgreSQL, MySQL, SQL Server and SQLite to
+              577 case×dialect runs (343 deny, 210 allow, 24 needs-approval). System under test:{" "}
+              <code className="rounded bg-slate-900 px-1 font-mono text-[11px] text-slate-300">
+                sql_policy@2.0.0
+              </code>{" "}
+              on sqlglot 30.17.0. No model is involved — this measures a deterministic decision
+              function, so there is no prompt version and no temperature. Reproduce it with{" "}
+              <code className="rounded bg-slate-900 px-1 font-mono text-[11px] text-slate-300">
+                uv run pytest tests/sqlpolicy
+              </code>{" "}
+              (616 tests, verified 2026-08-24).
+            </p>
+            <p>
+              <span className="font-semibold text-slate-300">Limitations, stated plainly.</span> This
+              measures the policy decision only — nothing in the corpus is sent to a real database. It
+              is a structural filter over a parsed AST, not a proof: the guarantee is bounded by
+              sqlglot&rsquo;s parse fidelity per dialect. And a corpus measures the attacks someone
+              thought to write down, so 343 of 343 is evidence of no <em>known</em> bypass, not of no
+              bypass.
+            </p>
+            <p>
+              <span className="font-semibold text-slate-300">
+                Why there is no accuracy percentage here.
+              </span>{" "}
+              Query-accuracy figures are tracked separately and are re-published only when a run can
+              be reproduced from a clean checkout. Unsafe prompts are handled in two independent
+              places — the model declines, and if it does not, the policy engine denies — and the one
+              recorded end-to-end run only ever exercised the first of those, so it is not evidence
+              about the second. The policy layer is measured on its own corpus above. Full audit:{" "}
+              <code className="rounded bg-slate-900 px-1 font-mono text-[11px] text-slate-300">
+                docs/v2/CLAIM_AUDIT.md
+              </code>
+              .
+            </p>
+          </div>
         </div>
       </section>
 
@@ -339,7 +413,7 @@ export default function Landing() {
       {/* Features */}
       <section id="features" className="border-y border-slate-800/60 bg-slate-950/40">
         <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
-          <SectionTitle eyebrow="Features" title="Everything you need to trust the answer" />
+          <SectionTitle eyebrow="Features" title="Everything you need to check the answer" />
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {FEATURES.map((f) => (
               <div key={f.title} className="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
@@ -405,7 +479,7 @@ export default function Landing() {
 
       {/* Security */}
       <section id="security" className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
-        <SectionTitle eyebrow="Security" title="Read-only by default. Your data stays safe." />
+        <SectionTitle eyebrow="Security" title="Read-only by default. You can see exactly what runs." />
         <div className="mt-10 grid gap-5 sm:grid-cols-2">
           {TRUST.map((t) => (
             <div
@@ -422,6 +496,16 @@ export default function Landing() {
             </div>
           ))}
         </div>
+        <p className="mx-auto mt-8 max-w-3xl text-center text-xs leading-relaxed text-slate-400">
+          Scope, because it varies by engine: PostgreSQL, MySQL and SQLite additionally open each
+          query inside a transaction the database itself marks read-only. SQL Server has no
+          session-level read-only mode — there the controls are the policy engine, a least-privilege
+          login and the driver query timeout. Every connection rolls back in a{" "}
+          <code className="rounded bg-slate-900 px-1 font-mono text-[11px] text-slate-300">
+            finally
+          </code>{" "}
+          block.
+        </p>
       </section>
 
       {/* Final CTA */}
@@ -435,7 +519,7 @@ export default function Landing() {
             Query your data in plain English.
           </h2>
           <p className="mx-auto mt-3 max-w-md text-sm text-slate-400">
-            Try it on the built-in sample database — no signup required.
+            Try it on the built-in sample database — no signup required on the hosted demo.
           </p>
           <Link href="/app" className={`mt-6 ${PRIMARY_CTA}`}>
             Open the console →

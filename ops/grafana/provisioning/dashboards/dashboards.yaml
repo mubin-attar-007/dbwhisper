@@ -1,0 +1,19 @@
+# Dashboard provisioning. The dashboards are files in the repository rather than Grafana-managed
+# state, so they are reviewable in a diff and cannot drift away from the metric names declared in
+# app/observability/metrics.py - tests/test_observability.py asserts every PromQL expression here
+# references a metric that actually exists.
+
+apiVersion: 1
+
+providers:
+  - name: dbwhisper
+    orgId: 1
+    folder: DBWhisper
+    type: file
+    disableDeletion: false
+    # Edits made in the UI are overwritten on reload: the file is the source of truth.
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

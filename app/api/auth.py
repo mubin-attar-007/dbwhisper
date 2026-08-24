@@ -5,6 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field, field_validator
 
+from app.core.config import get_settings
+from app.security.csrf import clear_csrf_cookie, issue_token, require_csrf, set_csrf_cookie
 from app.security.passwords import hash_password, needs_rehash, verify_password
 from app.security.sessions import create_session, revoke_session
 from app.security.user_auth import (
@@ -46,6 +48,16 @@ def _user_out(user: User) -> UserOut:
     return UserOut(id=user.id, email=user.email, is_admin=user.is_admin)
 
 
+def _issue_csrf(response: Response) -> None:
+    """Hand the browser a fresh double-submit token whenever it gains a session.
+
+    The session cookie is the ambient authority CSRF defends; issuing the two together means a
+    logged-in front end always holds a token it can echo, and a session can never exist without one.
+    ``secure`` follows the session cookie's own policy so a plain-HTTP local deployment still works.
+    """
+    set_csrf_cookie(response, issue_token(), secure=get_settings().cookie_secure)
+
+
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def register(payload: Credentials, response: Response) -> UserOut:
     db = get_session(get_project_db_connection_string())
@@ -61,6 +73,7 @@ def register(payload: Credentials, response: Response) -> UserOut:
         token = create_session(user.id, db=db)
         db.commit()
         set_session_cookie(response, token)
+        _issue_csrf(response)
         return _user_out(user)
     finally:
         db.close()
@@ -88,17 +101,23 @@ def login(payload: Credentials, response: Response) -> UserOut:
         token = create_session(user.id, db=db)
         db.commit()
         set_session_cookie(response, token)
+        _issue_csrf(response)
         return _user_out(user)
     finally:
         db.close()
 
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_csrf)],
+)
 def logout(request: Request, response: Response) -> None:
     token = get_session_token(request)
     if token:
         revoke_session(token)
     clear_session_cookie(response)
+    clear_csrf_cookie(response)
 
 
 @router.get("/me", response_model=UserOut)

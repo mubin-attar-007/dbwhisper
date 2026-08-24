@@ -55,10 +55,10 @@ class TestSqlAllowlist:
         assert "secret_table" in result["reason"]
 
     def test_unknown_dbflag_fails_closed(self):
-        # No schema index for this flag → we can't vouch for its tables, so reject (fail-closed).
+        # No schema snapshot for this flag -> we can't vouch for its tables, so reject.
         result = sql_validator.validate_sql("SELECT * FROM anything_at_all", db_flag="no_such_db")
         assert result["valid"] is False
-        assert "schema index" in result["reason"].lower()
+        assert "enroll" in result["reason"].lower()
 
 
 # ─── Env-configurable log level ────────────────────────────────────────────────

@@ -275,14 +275,16 @@ def _build_system_prompt(
     conversation_summary: str = "",
     previous_context: str = "",
     db_type: str | None = None,
+    db_description: str | None = None,
 ) -> str:
     prompt = SQL_AGENT_PROMPT.format(
         db_flag=db_flag,
-        current_time=datetime.utcnow().isoformat(),
-        user_id=user_id or "Unknown",
-        session_id=session_id or "8ccdc767-7e2c-45b2-9a25-a4bf0d90355d",
-        conversation_summary=conversation_summary,
-        previous_context=previous_context,
+        database_description=(db_description or "").strip() or "No description provided.",
+        current_time=datetime.now(UTC).isoformat(),
+        user_id=user_id or "anonymous",
+        session_id=session_id or "stateless",
+        conversation_summary=conversation_summary or "No conversation history yet.",
+        previous_context=previous_context or "None.",
     )
     return _dialect_directive(db_type) + prompt
 
@@ -458,6 +460,7 @@ def get_cached_agent_with_context(
     user_id: str | None = None,
     session_id: str | None = None,
     db_type: str | None = None,
+    db_description: str | None = None,
 ) -> Any:
     """Return an agent runnable with conversation context awareness.
 
@@ -474,11 +477,14 @@ def get_cached_agent_with_context(
         conversation_summary=conversation_summary,
         previous_context=previous_context,
         db_type=db_type,
+        db_description=db_description,
     )
     return create_sql_agent(llm, system_prompt)
 
 
-def get_cached_agent(provider: str, db_flag: str, db_type: str | None = None) -> Any:
+def get_cached_agent(
+    provider: str, db_flag: str, db_type: str | None = None, db_description: str | None = None
+) -> Any:
     """Return an agent runnable for the provider and database context.
 
     Note: Use get_cached_agent_with_context for conversation-aware agents.
@@ -486,7 +492,7 @@ def get_cached_agent(provider: str, db_flag: str, db_type: str | None = None) ->
     """
 
     llm = get_llm(provider)
-    system_prompt = _build_system_prompt(db_flag, db_type=db_type)
+    system_prompt = _build_system_prompt(db_flag, db_type=db_type, db_description=db_description)
     return create_sql_agent(llm, system_prompt)
 
 

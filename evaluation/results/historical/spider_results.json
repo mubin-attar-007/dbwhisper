@@ -1,0 +1,1125 @@
+{
+  "model": "qwen/qwen3-32b (Groq)",
+  "benchmark": "Spider dev",
+  "method": "execution accuracy (result-set match, ordered when gold has ORDER BY); DBWhisper's generation model (qwen/qwen3-32b) at temp 0.1 with the database schema in context; only examples the model actually answered are scored \u2014 transient transport/throttle failures are excluded, never counted as wrong \u2014 config-truncated/throttled items were re-run once at max_tokens=8192 (production sets no cap, so no reasoning truncates); genuine wrong-SQL left as-is \u2014 config-truncated/throttled items were re-run once at max_tokens=8192 (production sets no cap, so no reasoning truncates); genuine wrong-SQL left as-is",
+  "sampled": 148,
+  "scored": 139,
+  "invalid_gold_skipped": 0,
+  "llm_unavailable_skipped": 9,
+  "correct": 101,
+  "exec_accuracy": 0.7266,
+  "rows": [
+    {
+      "db_id": "concert_singer",
+      "q": "How many singers do we have?",
+      "gold": "SELECT count(*) FROM singer",
+      "gen": "SELECT COUNT(*) FROM singer",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "concert_singer",
+      "q": "What are the names and release years for all the songs of the youngest singer?",
+      "gold": "SELECT song_name ,  song_release_year FROM singer ORDER BY age LIMIT 1",
+      "gen": "SELECT Song_Name, Song_release_year FROM singer WHERE Age = (SELECT MIN(Age) FROM singer)",
+      "ok": true,
+      "ordered": true
+    },
+    {
+      "db_id": "concert_singer",
+      "q": "Show location and name for all stadiums with a capacity between 5000 and 10000.",
+      "gold": "SELECT LOCATION ,  name FROM stadium WHERE capacity BETWEEN 5000 AND 10000",
+      "gen": "SELECT Location, Name FROM stadium WHERE Capacity BETWEEN 5000 AND 10000",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "concert_singer",
+      "q": "How many concerts occurred in 2014 or 2015?",
+      "gold": "SELECT count(*) FROM concert WHERE YEAR  =  2014 OR YEAR  =  2015",
+      "gen": "SELECT COUNT(*) FROM concert WHERE Year IN ('2014', '2015')",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "concert_singer",
+      "q": "Show the stadium names without any concert.",
+      "gold": "SELECT name FROM stadium WHERE stadium_id NOT IN (SELECT stadium_id FROM concert)",
+      "gen": "SELECT Name FROM stadium WHERE Stadium_ID NOT IN (SELECT Stadium_ID FROM concert)",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "concert_singer",
+      "q": "List singer names and number of concerts for each singer.",
+      "gold": "SELECT T2.name ,  count(*) FROM singer_in_concert AS T1 JOIN singer AS T2 ON T1.singer_id  =  T2.singer_id GROUP BY T2.singer_id",
+      "gen": "SELECT s.Name, COUNT(*) AS num_concerts\nFROM singer s\nJOIN singer_in_concert sic ON s.Singer_ID = sic.Singer_ID\nGROUP BY s.Singer_ID",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "concert_singer",
+      "q": "What are the names and locations of the stadiums that had concerts that occurred in both 2014 and 2015?",
+      "gold": "SELECT T2.name ,  T2.location FROM concert AS T1 JOIN stadium AS T2 ON T1.stadium_id  =  T2.stadium_id WHERE T1.Year  =  2014 INTERSECT SELECT T2.name ,  T2.location FROM concert AS T1 JOIN stadium AS T2 ON T1.stadium_id  =  T2.stadium_id WHERE T1.Year  =  2015",
+      "gen": "SELECT s.Name, s.Location\nFROM stadium s\nWHERE s.Stadium_ID IN (\n    SELECT c.Stadium_ID FROM concert c WHERE c.Year = '2014'\n    INTERSECT\n    SELECT c.Stadium_ID FROM concert c WHERE c.Year = '2015'\n)",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "pets_1",
+      "q": "Find the maximum weight for each type of pet. List the maximum weight and pet type.",
+      "gold": "SELECT max(weight) ,  petType FROM pets GROUP BY petType",
+      "gen": "SELECT PetType, MAX(weight) FROM Pets GROUP BY PetType",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "pets_1",
+      "q": "How many different types of pet are there?",
+      "gold": "SELECT count(DISTINCT pettype) FROM pets",
+      "gen": "SELECT COUNT(DISTINCT PetType) FROM Pets",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "pets_1",
+      "q": "Find the id of students who do not have a cat pet.",
+      "gold": "SELECT stuid FROM student EXCEPT SELECT T1.stuid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat'",
+      "gen": "SELECT StuID FROM Student WHERE StuID NOT IN (SELECT StuID FROM Has_Pet JOIN Pets ON Has_Pet.PetID = Pets.PetID WHERE Pets.PetType = 'cat')",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "pets_1",
+      "q": "What is the id and weight of every pet who is older than 1?",
+      "gold": "SELECT petid ,  weight FROM pets WHERE pet_age  >  1",
+      "gen": "SELECT PetID, weight FROM Pets WHERE pet_age > 1",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "pets_1",
+      "q": "Find the id of the pet owned by student whose last name is \u2018Smith\u2019.",
+      "gold": "SELECT T2.petid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid WHERE T1.Lname  =  'Smith'",
+      "gen": "SELECT Has_Pet.PetID\nFROM Student\nJOIN Has_Pet ON Student.StuID = Has_Pet.StuID\nWHERE Student.LName = 'Smith'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "pets_1",
+      "q": "What is the last name of the student who has a cat that is 3 years old?",
+      "gold": "SELECT T1.lname FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pet_age  =  3 AND T3.pettype  =  'cat'",
+      "gen": "SELECT Student.LName\nFROM Student\nJOIN Has_Pet ON Student.StuID = Has_Pet.StuID\nJOIN Pets ON Has_Pet.PetID = Pets.PetID\nWHERE Pets.PetType = 'cat' AND Pets.pet_age = 3",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "car_1",
+      "q": "How many countries are listed?",
+      "gold": "SELECT count(*) FROM COUNTRIES;",
+      "gen": "SELECT COUNT(*) FROM countries",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "car_1",
+      "q": "What is the model for the car with a weight smaller than the average?",
+      "gold": "SELECT T1.model FROM CAR_NAMES AS T1 JOIN CARS_DATA AS T2 ON T1.MakeId  =  T2.Id WHERE T2.Weight  <  (SELECT avg(Weight) FROM CARS_DATA)",
+      "gen": "SELECT model_list.Model\nFROM model_list\nJOIN car_names ON model_list.Model = car_names.Model\nJOIN cars_data ON car_names.MakeId = cars_data.Id\nWHERE cars_data.Weight < (SELECT AVG(Weight) FROM cars_data)",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "car_1",
+      "q": "How many car makers are there in each continents? List the continent name and the count.",
+      "gold": "SELECT T1.Continent ,  count(*) FROM CONTINENTS AS T1 JOIN COUNTRIES AS T2 ON T1.ContId  =  T2.continent JOIN car_makers AS T3 ON T2.CountryId  =  T3.Country GROUP BY T1.Continent;",
+      "gen": "SELECT continents.Continent",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "car_1",
+      "q": "How much does the car accelerate that makes amc hornet sportabout (sw)?",
+      "gold": "SELECT T1.Accelerate FROM CARS_DATA AS T1 JOIN CAR_NAMES AS T2 ON T1.Id  =  T2.MakeId WHERE T2.Make  =  'amc hornet sportabout (sw)';",
+      "gen": "SELECT Accelerate FROM cars_data JOIN car_names ON cars_data.Id = car_names.MakeId WHERE car_names.Model = 'amc hornet sportabout (sw)'",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "car_1",
+      "q": "What is the smallest weight of the car produced with 8 cylinders on 1974 ?",
+      "gold": "select min(weight) from cars_data where cylinders  =  8 and year  =  1974",
+      "gen": "SELECT MIN(Weight) FROM cars_data WHERE Cylinders = 8 AND Year = 1974",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "car_1",
+      "q": "What is the number of cars with a horsepower greater than 150?",
+      "gold": "SELECT count(*) FROM CARS_DATA WHERE horsepower  >  150;",
+      "gen": "SELECT COUNT(*) FROM cars_data WHERE CAST(Horsepower AS INTEGER) > 150",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "car_1",
+      "q": "Which model saves the most gasoline? That is to say, have the maximum miles per gallon.",
+      "gold": "SELECT T1.Model FROM CAR_NAMES AS T1 JOIN CARS_DATA AS T2 ON T1.MakeId  =  T2.Id ORDER BY T2.mpg DESC LIMIT 1;",
+      "gen": "SELECT model_list.Model\nFROM cars_data\nJOIN car_names ON cars_data.Id = car_names.MakeId\nJOIN model_list ON car_names.Model = model_list.Model\nWHERE CAST(cars_data.MPG AS REAL) = (\n    SELECT MAX(CAST(MPG AS REAL)) FROM cars_data\n)",
+      "ok": false,
+      "ordered": true
+    },
+    {
+      "db_id": "car_1",
+      "q": "What is the maximum accelerate for all the different cylinders?",
+      "gold": "SELECT max(Accelerate) ,  Cylinders FROM CARS_DATA GROUP BY Cylinders;",
+      "gen": "SELECT Cylinders, MAX(Accelerate) FROM cars_data GROUP BY Cylinders",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "car_1",
+      "q": "How many car models were produced by the maker with full name American Motor Company?",
+      "gold": "SELECT count(*) FROM CAR_MAKERS AS T1 JOIN MODEL_LIST AS T2 ON T1.Id  =  T2.Maker WHERE T1.FullName  =  'American Motor Company';",
+      "gen": "SELECT COUNT(*) FROM model_list WHERE Maker = (SELECT Id FROM car_makers WHERE FullName = 'American Motor Company')",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "car_1",
+      "q": "What are the different years in which there were cars produced that weighed less than 4000 and also cars that weighted more than 3000 ?",
+      "gold": "select distinct year from cars_data where weight between 3000 and 4000;",
+      "gen": "SELECT Year FROM cars_data WHERE Weight < 4000 INTERSECT SELECT Year FROM cars_data WHERE Weight > 3000 ORDER BY Year",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "car_1",
+      "q": "How many countries has more than 2 car makers ?",
+      "gold": "select count(*) from countries as t1 join car_makers as t2 on t1.countryid  =  t2.country group by t1.countryid having count(*)  >  2",
+      "gen": "SELECT COUNT(*) FROM (SELECT Country FROM car_makers GROUP BY Country HAVING COUNT(*) > 2)",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "car_1",
+      "q": "Among the cars that do not have the minimum horsepower , what are the make ids and names of all those with less than 4 cylinders ?",
+      "gold": "select t2.makeid ,  t2.make from cars_data as t1 join car_names as t2 on t1.id  =  t2.makeid where t1.horsepower  >  (select min(horsepower) from cars_data) and t1.cylinders  <  4;",
+      "gen": "SELECT car_names.MakeId, car_makers.FullName\nFROM cars_data\nJOIN car_names ON cars_data.Id = car_names.MakeId\nJOIN model_list ON car_names.Model = model_list.Model\nJOIN car_makers ON model_list.Maker = car_makers.Id\nWHERE cars_data.Cylinders < 4\nAND CAST(cars_data.Horsepower AS INTEGER) > (\n    SELECT MIN(CAST(Horsepower AS INTEGER)) \n    FROM cars_data\n)",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "car_1",
+      "q": "Which are the car makers which produce at least 2 models and more than 3 car makers ? List the id and the maker .",
+      "gold": "select t1.id ,  t1.maker from car_makers as t1 join model_list as t2 on t1.id  =  t2.maker group by t1.id having count(*)  >=  2 intersect select t1.id ,  t1.maker from car_makers as t1 join model_list as t2 on t1.id  =  t2.maker join car_names as t3 on t2.model  =  t3.model group by t1.id having count(*)  >  3;",
+      "gen": "SELECT c.Id, c.Maker\nFROM car_makers c\nJOIN model_list m ON c.Id = m.Maker\nGROUP BY c.Id\nHAVING COUNT(m.Model) >= 2\nAND (\n    SELECT COUNT(*) \n    FROM car_makers c2 \n    WHERE c2.Country = c.Country\n) > 3",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "flight_2",
+      "q": "Which abbreviation corresponds to Jetblue Airways?",
+      "gold": "SELECT Abbreviation FROM AIRLINES WHERE Airline  =  \"JetBlue Airways\"",
+      "gen": "SELECT Abbreviation FROM airlines WHERE Airline = 'Jetblue Airways'",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "flight_2",
+      "q": "How many airports do we have?",
+      "gold": "SELECT count(*) FROM AIRPORTS",
+      "gen": "SELECT COUNT(*) FROM airports",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "flight_2",
+      "q": "Return the number of airlines in the USA.",
+      "gold": "SELECT count(*) FROM AIRLINES WHERE Country  =  \"USA\"",
+      "gen": "SELECT COUNT(*) FROM airlines WHERE Country = 'USA'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "flight_2",
+      "q": "How many flights depart from 'APG'?",
+      "gold": "SELECT count(*) FROM FLIGHTS WHERE SourceAirport  =  \"APG\"",
+      "gen": "SELECT COUNT(*) FROM flights WHERE SourceAirport = 'APG'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "flight_2",
+      "q": "Return the number of flights arriving in Aberdeen.",
+      "gold": "SELECT count(*) FROM FLIGHTS AS T1 JOIN AIRPORTS AS T2 ON T1.DestAirport  =  T2.AirportCode WHERE T2.City  =  \"Aberdeen\"",
+      "gen": "SELECT COUNT(*) FROM flights WHERE DestAirport IN (SELECT AirportCode FROM airports WHERE City = 'Aberdeen')",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "flight_2",
+      "q": "How many 'United Airlines' flights depart from Airport 'AHD'?",
+      "gold": "SELECT count(*) FROM AIRLINES AS T1 JOIN FLIGHTS AS T2 ON T2.Airline  =  T1.uid WHERE T1.Airline  =  \"United Airlines\" AND T2.SourceAirport  =  \"AHD\"",
+      "gen": "SELECT COUNT(*) FROM flights JOIN airlines ON flights.Airline = airlines.uid WHERE airlines.Airline = 'United Airlines' AND flights.SourceAirport = 'AHD'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "flight_2",
+      "q": "Which city is the most frequent source airport?",
+      "gold": "SELECT T1.City FROM AIRPORTS AS T1 JOIN FLIGHTS AS T2 ON T1.AirportCode  =  T2.SourceAirport GROUP BY T1.City ORDER BY count(*) DESC LIMIT 1",
+      "gen": "SELECT airports.City, COUNT(*) AS count \nFROM flights \nJOIN airports ON flights.SourceAirport = airports.AirportCode \nGROUP BY airports.City \nORDER BY count DESC \nLIMIT 1",
+      "ok": true,
+      "ordered": true
+    },
+    {
+      "db_id": "flight_2",
+      "q": "Find the abbreviation and country of the airline that has fewest number of flights?",
+      "gold": "SELECT T1.Abbreviation ,  T1.Country FROM AIRLINES AS T1 JOIN FLIGHTS AS T2 ON T1.uid  =  T2.Airline GROUP BY T1.Airline ORDER BY count(*) LIMIT 1",
+      "gen": "SELECT a.Abbreviation, a.Country\nFROM airlines a\nLEFT JOIN flights f ON a.uid = f.Airline\nGROUP BY a.uid\nORDER BY COUNT(f.Airline) ASC\nLIMIT 1",
+      "ok": false,
+      "ordered": true
+    },
+    {
+      "db_id": "flight_2",
+      "q": "Which airlines have departing flights from both APG and CVO airports?",
+      "gold": "SELECT T1.Airline FROM AIRLINES AS T1 JOIN FLIGHTS AS T2 ON T1.uid  =  T2.Airline WHERE T2.SourceAirport  =  \"APG\" INTERSECT SELECT T1.Airline FROM AIRLINES AS T1 JOIN FLIGHTS AS T2 ON T1.uid  =  T2.Airline WHERE T2.SourceAirport  =  \"CVO\"",
+      "gen": "with HAVING COUNT(DISTINCT SourceAirport) = 2, but only if we know that the only possible airports are APG and CVO. But in reality, there might be other airports. However, the question is specifically about both APG and CVO. So even if an airline has flights from other airports, as long as they have both APG and CVO, they should be included.\n\nWait, if I do GROUP BY Airline and HAVING COUNT(DISTINCT CASE WHEN SourceAirport IN ('APG', 'CVO') THEN SourceAirport END) = 2. That way, it checks that there are two distinct airports in the specified list. But maybe there's a better way.\n\nAlternatively, select all airlines that have flights from APG, then select those that have flights from CVO, and find the intersection. That's where INTERSECT comes in. So if I can get the list of airlines that have flights from APG, and then INTERSECT with those that have flights from CVO, the result would be airlines that are present in both, meaning they have flights from both.\n\nYes, that might work. Let's think about that. So first, find all distinct airlines (Airline column in flights) where SourceAirport is APG. Then find all distinct airlines where SourceAirport is CVO. Then take the intersection of these two sets. That would give the airlines that have flights from both.\n\nBut how to write that in SQL. The INTERSECT operator can be used here. So the query would be:\n\nSELECT Airline FROM flights WHERE SourceAirport = 'APG'\nINTERSECT\nSELECT Airline FROM flights WHERE SourceAirport = 'CVO'\n\nBut then, the user wants the airline names, not just the Airline (which is the uid). So we need to join with the airlines table to get the Airline name.\n\nSo the full query would be:\n\nSELECT DISTINCT a.Airline\nFROM airlines a\nJOIN flights f ON a.uid = f.Airline\nWHERE f.SourceAirport IN ('APG', 'CVO')\nGROUP BY a.uid\nHAVING COUNT(DISTINCT f.SourceAirport) = 2",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "flight_2",
+      "q": "What are flight numbers of Airline \"United Airlines\"?",
+      "gold": "SELECT T1.FlightNo FROM FLIGHTS AS T1 JOIN AIRLINES AS T2 ON T2.uid  =  T1.Airline WHERE T2.Airline  =  \"United Airlines\"",
+      "gen": "SELECT flights.FlightNo \nFROM flights \nJOIN airlines ON flights.Airline = airlines.uid \nWHERE airlines.Airline = 'United Airlines'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "flight_2",
+      "q": "Give the flight numbers of flights leaving from Aberdeen.",
+      "gold": "SELECT T1.FlightNo FROM FLIGHTS AS T1 JOIN AIRPORTS AS T2 ON T1.SourceAirport   =  T2.AirportCode WHERE T2.City  =  \"Aberdeen\"",
+      "gen": "SELECT flights.FlightNo\nFROM flights\nJOIN airports ON flights.SourceAirport = airports.AirportCode\nWHERE airports.City = 'Aberdeen'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "employee_hire_evaluation",
+      "q": "How many employees are there?",
+      "gold": "SELECT count(*) FROM employee",
+      "gen": "SELECT COUNT(*) FROM employee",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "employee_hire_evaluation",
+      "q": "Find the cities that have more than one employee under age 30.",
+      "gold": "SELECT city FROM employee WHERE age  <  30 GROUP BY city HAVING count(*)  >  1",
+      "gen": "SELECT City\nFROM employee\nWHERE Age < 30\nGROUP BY City\nHAVING COUNT(*) > 1",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "employee_hire_evaluation",
+      "q": "Return the name, location and district of all shops in descending order of number of products.",
+      "gold": "SELECT name ,  LOCATION ,  district FROM shop ORDER BY number_products DESC",
+      "gen": "SELECT Name, Location, District FROM shop ORDER BY Number_products DESC",
+      "ok": true,
+      "ordered": true
+    },
+    {
+      "db_id": "employee_hire_evaluation",
+      "q": "Which employee received the biggest bonus? Give me the employee name.",
+      "gold": "SELECT t1.name FROM employee AS t1 JOIN evaluation AS t2 ON t1.Employee_ID  =  t2.Employee_ID ORDER BY t2.bonus DESC LIMIT 1",
+      "gen": "SELECT e.Name\nFROM employee e\nJOIN evaluation ev ON e.Employee_ID = ev.Employee_ID\nWHERE ev.Bonus = (SELECT MAX(Bonus) FROM evaluation)",
+      "ok": true,
+      "ordered": true
+    },
+    {
+      "db_id": "employee_hire_evaluation",
+      "q": "Find the number of employees hired in each shop; show the shop name as well.",
+      "gold": "SELECT count(*) ,  t2.name FROM hiring AS t1 JOIN shop AS t2 ON t1.shop_id  =  t2.shop_id GROUP BY t2.name",
+      "gen": "SELECT s.Name, COUNT(*) FROM hiring h JOIN shop s ON h.Shop_ID = s.Shop_ID GROUP BY h.Shop_ID",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "employee_hire_evaluation",
+      "q": "Find the districts in which there are both shops selling less than 3000 products and shops selling more than 10000 products.",
+      "gold": "SELECT district FROM shop WHERE Number_products  <  3000 INTERSECT SELECT district FROM shop WHERE Number_products  >  10000",
+      "gen": "SELECT District\nFROM shop\nGROUP BY District\nHAVING \n    SUM(CASE WHEN Number_products < 3000 THEN 1 ELSE 0 END) > 0\n    AND \n    SUM(CASE WHEN Number_products > 10000 THEN 1 ELSE 0 END) > 0",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "cre_Doc_Template_Mgt",
+      "q": "What is the document name and template id for document with description with the letter 'w' in it?",
+      "gold": "SELECT document_name ,  template_id FROM Documents WHERE Document_Description LIKE \"%w%\"",
+      "gen": "SELECT Document_Name, Template_ID FROM Documents WHERE Document_Description LIKE '%w%'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "cre_Doc_Template_Mgt",
+      "q": "Count the number of documents that use the PPT template type.",
+      "gold": "SELECT count(*) FROM Documents AS T1 JOIN Templates AS T2 ON T1.Template_ID  =  T2.Template_ID WHERE T2.Template_Type_Code  =  'PPT'",
+      "gen": "SELECT COUNT(DISTINCT Documents.Document_ID) \nFROM Documents \nJOIN Templates ON Documents.Template_ID = Templates.Template_ID \nJOIN Ref_Template_Types ON Templates.Template_Type_Code = Ref_Template_Types.Template_Type_Code \nWHERE Ref_Template_Types.Template_Type_Code = 'PPT'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "cre_Doc_Template_Mgt",
+      "q": "Show ids for all templates not used by any document.",
+      "gold": "SELECT template_id FROM Templates EXCEPT SELECT template_id FROM Documents",
+      "gen": "SELECT t.Template_ID\nFROM Templates t\nLEFT JOIN Documents d ON t.Template_ID = d.Template_ID\nWHERE d.Template_ID IS NULL",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "cre_Doc_Template_Mgt",
+      "q": "What are the different template type codes?",
+      "gold": "SELECT DISTINCT template_type_code FROM Templates",
+      "gen": "SELECT Template_Type_Code FROM Ref_Template_Types",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "cre_Doc_Template_Mgt",
+      "q": "Show all template type codes and number of templates for each.",
+      "gold": "SELECT template_type_code ,  count(*) FROM Templates GROUP BY template_type_code",
+      "gen": "SELECT r.Template_Type_Code, COUNT(t.Template_ID) AS Template_Count\nFROM Ref_Template_Types r\nLEFT JOIN Templates t ON r.Template_Type_Code = t.Template_Type_Code\nGROUP BY r.Template_Type_Code",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "cre_Doc_Template_Mgt",
+      "q": "Return the lowest version number, along with its corresponding template type code.",
+      "gold": "SELECT min(Version_Number) ,  template_type_code FROM Templates",
+      "gen": "SELECT Version_Number, Template_Type_Code\nFROM Templates\nWHERE Version_Number = (SELECT MIN(Version_Number) FROM Templates)",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "cre_Doc_Template_Mgt",
+      "q": "Which template type code is used by most number of documents?",
+      "gold": "SELECT T1.template_type_code FROM Templates AS T1 JOIN Documents AS T2 ON T1.template_id  =  T2.template_id GROUP BY T1.template_type_code ORDER BY count(*) DESC LIMIT 1",
+      "gen": "SELECT rt.Template_Type_Code\nFROM Ref_Template_Types rt\nJOIN Templates t ON rt.Template_Type_Code = t.Template_Type_Code\nJOIN Documents d ON t.Template_ID = d.Template_ID\nGROUP BY rt.Template_Type_Code\nORDER BY COUNT(d.Document_ID) DESC\nLIMIT 1",
+      "ok": true,
+      "ordered": true
+    },
+    {
+      "db_id": "cre_Doc_Template_Mgt",
+      "q": "Return the template type description of the template type with the code AD.",
+      "gold": "SELECT template_type_description FROM Ref_template_types WHERE template_type_code  =  \"AD\"",
+      "gen": "SELECT Template_Type_Description FROM Ref_Template_Types WHERE Template_Type_Code = 'AD'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "cre_Doc_Template_Mgt",
+      "q": "How many paragraphs in total?",
+      "gold": "SELECT count(*) FROM Paragraphs",
+      "gen": "SELECT COUNT(*) FROM Paragraphs",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "cre_Doc_Template_Mgt",
+      "q": "What are the ids and texts of paragraphs in the document titled 'Welcome to NY'?",
+      "gold": "SELECT T1.paragraph_id ,   T1.paragraph_text FROM Paragraphs AS T1 JOIN Documents AS T2 ON T1.document_id  =  T2.document_id WHERE T2.Document_Name  =  'Welcome to NY'",
+      "gen": "SELECT Paragraphs.Paragraph_ID, Paragraphs.Paragraph_Text\nFROM Paragraphs\nJOIN Documents ON Paragraphs.Document_ID = Documents.Document_ID\nWHERE Documents.Document_Name = 'Welcome to NY'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "cre_Doc_Template_Mgt",
+      "q": "List all document ids with at least two paragraphs.",
+      "gold": "SELECT document_id FROM Paragraphs GROUP BY document_id HAVING count(*)  >=  2",
+      "gen": "SELECT Document_ID\nFROM Paragraphs\nGROUP BY Document_ID\nHAVING COUNT(Paragraph_ID) >= 2",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "cre_Doc_Template_Mgt",
+      "q": "Give the ids of documents that have between one and two paragraphs.",
+      "gold": "SELECT document_id FROM Paragraphs GROUP BY document_id HAVING count(*) BETWEEN 1 AND 2",
+      "gen": "SELECT Document_ID\nFROM Paragraphs\nGROUP BY Document_ID\nHAVING COUNT(*) BETWEEN 1 AND 2",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "course_teach",
+      "q": "What are the age and hometown of teachers?",
+      "gold": "SELECT Age ,  Hometown FROM teacher",
+      "gen": "SELECT Age, Hometown FROM teacher",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "course_teach",
+      "q": "Where is the youngest teacher from?",
+      "gold": "SELECT Hometown FROM teacher ORDER BY Age ASC LIMIT 1",
+      "gen": "SELECT Hometown FROM teacher ORDER BY CAST(Age AS INTEGER) ASC LIMIT 1",
+      "ok": true,
+      "ordered": true
+    },
+    {
+      "db_id": "course_teach",
+      "q": "Show names of teachers and the courses they are arranged to teach.",
+      "gold": "SELECT T3.Name ,  T2.Course FROM course_arrange AS T1 JOIN course AS T2 ON T1.Course_ID  =  T2.Course_ID JOIN teacher AS T3 ON T1.Teacher_ID  =  T3.Teacher_ID",
+      "gen": "SELECT teacher.Name, course.Course \nFROM teacher \nJOIN course_arrange ON teacher.Teacher_ID = course_arrange.Teacher_ID \nJOIN course ON course_arrange.Course_ID = course.Course_ID",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "course_teach",
+      "q": "What are the names of the teachers and how many courses do they teach?",
+      "gold": "SELECT T2.Name ,  COUNT(*) FROM course_arrange AS T1 JOIN teacher AS T2 ON T1.Teacher_ID  =  T2.Teacher_ID GROUP BY T2.Name",
+      "gen": "SELECT t.Name, COUNT(DISTINCT ca.Course_ID) FROM teacher t JOIN course_arrange ca ON t.Teacher_ID = ca.Teacher_ID GROUP BY t.Teacher_ID",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "museum_visit",
+      "q": "What is the average age of the visitors whose membership level is not higher than 4?",
+      "gold": "SELECT avg(age) FROM visitor WHERE Level_of_membership  <=  4",
+      "gen": "SELECT AVG(Age) FROM visitor WHERE Level_of_membership <= 4",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "museum_visit",
+      "q": "What are the id, name and membership level of visitors who have spent the largest amount of money in total in all museum tickets?",
+      "gold": "SELECT t2.visitor_id ,  t1.name ,  t1.Level_of_membership FROM visitor AS t1 JOIN visit AS t2 ON t1.id  =  t2.visitor_id GROUP BY t2.visitor_id ORDER BY sum(t2.Total_spent) DESC LIMIT 1",
+      "gen": "select the visitors whose sum equals that maximum.\n\nBut how to do that in SQL? Let's think. First, calculate the total spent per visitor. Then find the max total. Then select those visitors.\n\nBut since SQLite doesn't allow using aggregate functions in WHERE clauses directly, I need to use a subquery. Maybe first compute the total per visitor, then find the max total in another subquery, and then select where the total equals the max.\n\nLet me structure the query step by step. \n\nFirst, join visitor and visit tables. Then group by visitor.ID. For each group, sum Total_spent. Then order by the sum descending and take the top one. But how to handle ties? If multiple visitors have the same maximum total, they should all be included.\n\nSo, the steps are:\n\n1. Calculate each visitor's total spent.\n2. Find the maximum total spent value.\n3. Select the visitors whose total spent equals that maximum.\n\nFor step 1, the SQL would be:\n\nSELECT visitor.ID, visitor.Name, visitor.Level_of_membership, SUM(visit.Total_spent) AS Total\nFROM visitor\nJOIN visit ON visitor.ID = visit.visitor_ID\nGROUP BY visitor.ID",
+      "ok": false,
+      "ordered": true
+    },
+    {
+      "db_id": "museum_visit",
+      "q": "Find the number of visitors who did not visit any museum opened after 2010.",
+      "gold": "SELECT count(*) FROM visitor WHERE id NOT IN (SELECT t2.visitor_id FROM museum AS t1 JOIN visit AS t2 ON t1.Museum_ID  =  t2.Museum_ID WHERE t1.open_year  >  2010)",
+      "gen": "SELECT COUNT(*) FROM visitor WHERE NOT EXISTS (SELECT 1 FROM visit JOIN museum ON visit.Museum_ID = museum.Museum_ID WHERE museum.Open_Year > '2010' AND visit.visitor_ID = CAST(visitor.ID AS TEXT))",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "wta_1",
+      "q": "What are the first names and birth dates of players from the USA?",
+      "gold": "SELECT first_name ,  birth_date FROM players WHERE country_code  =  'USA'",
+      "gen": "SELECT first_name, birth_date FROM players WHERE country_code = 'USA'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "wta_1",
+      "q": "find the number of distinct country codes of all players.",
+      "gold": "SELECT count(DISTINCT country_code) FROM players",
+      "gen": "SELECT COUNT(DISTINCT country_code) FROM players",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "wta_1",
+      "q": "What are the names of players who won in both 2013 and 2016?",
+      "gold": "SELECT winner_name FROM matches WHERE YEAR  =  2013 INTERSECT SELECT winner_name FROM matches WHERE YEAR  =  2016",
+      "gen": "SELECT p.first_name, p.last_name\nFROM players p\nWHERE p.player_id IN (\n    SELECT winner_id FROM matches WHERE year = 2013\n    INTERSECT\n    SELECT winner_id FROM matches WHERE year = 2016\n)",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "wta_1",
+      "q": "List the first and last name of all players in the order of birth date.",
+      "gold": "SELECT first_name ,  last_name FROM players ORDER BY birth_date",
+      "gen": "SELECT first_name, last_name FROM players ORDER BY birth_date",
+      "ok": true,
+      "ordered": true
+    },
+    {
+      "db_id": "wta_1",
+      "q": "Which year had the most matches?",
+      "gold": "SELECT YEAR FROM matches GROUP BY YEAR ORDER BY count(*) DESC LIMIT 1",
+      "gen": "SELECT year FROM matches GROUP BY year ORDER BY COUNT(*) DESC LIMIT 1",
+      "ok": true,
+      "ordered": true
+    },
+    {
+      "db_id": "wta_1",
+      "q": "Find the average ranking for each player and their first name.",
+      "gold": "SELECT avg(ranking) ,  T1.first_name FROM players AS T1 JOIN rankings AS T2 ON T1.player_id  =  T2.player_id GROUP BY T1.first_name",
+      "gen": "SELECT p.first_name, AVG(r.ranking) AS average_rank \nFROM rankings r \nJOIN players p ON r.player_id = p.player_id \nGROUP BY r.player_id, p.first_name",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "wta_1",
+      "q": "What is the code of the country with the most players?",
+      "gold": "SELECT country_code FROM players GROUP BY country_code ORDER BY count(*) DESC LIMIT 1",
+      "gen": "SELECT country_code\nFROM players\nGROUP BY country_code\nORDER BY COUNT(*) DESC\nLIMIT 1",
+      "ok": true,
+      "ordered": true
+    },
+    {
+      "db_id": "wta_1",
+      "q": "Find the name and rank of the 3 youngest winners across all matches.",
+      "gold": "SELECT DISTINCT winner_name ,  winner_rank FROM matches ORDER BY winner_age LIMIT 3",
+      "gen": "select from matches, order by winner_age ascending, and take the top 3. But wait, there might be multiple matches per player. For example, if a player won multiple matches, they might show up multiple times. But the user probably wants distinct players. So I should make sure to get unique winners.\n\nWait, the question says \"the 3 youngest winners\". So each winner is a player, and we need their name and their rank. Wait, where is the rank? The matches table has winner_rank. But that's per match. Maybe the rankings table has the actual ranking? Hmm, the user says \"rank\" so maybe they mean the current rank. But the question isn't clear. Let me check the schema again.\n\nLooking at the matches table, there's winner_rank and winner_rank_points. The rankings table has ranking, ranking_points, etc. The question says \"rank\", so maybe they want the winner's rank from the matches. But perhaps the user wants the latest ranking from the rankings table. But the question is about the youngest winners in matches. So maybe the answer is to get the winner's name from the matches table, ordered by their age, and then get their rank from the same matches table. But if a player has multiple matches, we need to consider their age in those matches. Wait, but the age in the matches is the winner_age for that match. But if a player is a winner in multiple matches, their age would be different depending on when the match was. But the actual age of the player is determined by their birth date. Oh, right! The players table has birth_date. So maybe the correct way is to calculate the actual age of the player based on their birth date, not the winner_age in the matches. Because the winner_age in the matches is the age at the time of the match. But if we want the youngest winners overall, perhaps we should look at their actual age, not the age at the time of a specific match. Wait, but the question says \"youngest winners across all matches\". So maybe they want the players who were the youngest when they won a match. But if a player has multiple wins, we need to consider their age at the time of each win. However, the user wants the 3 youngest winners. So perhaps we need to find all distinct winners, calculate their age at the time of their win, and then pick the three youngest. But if a player has multiple wins, we need to take the earliest one? Or just take each occurrence? Hmm, the question isn't entirely clear. Let me think again.\n\nThe question is to find the name and rank of the 3 youngest winners across all matches. So, for each match where someone is a winner, we have their age (winner_age). So if we take all the winners from all matches, and then order them by their winner_age, and pick the top 3 distinct players. But how to get their name? The winner_name is in the matches table. But maybe that's their name at the time. However, the players table has first_name and last_name. But since there's a foreign key from winner_id to players(player_id), perhaps we can join on that. So the plan is:\n\n1. Join matches with players on winner_id = player_id to get the player's name.\n2. Select winner_age from matches, but need to get distinct players. But how to handle if a player has multiple matches. For example, if a player won multiple matches, their age would be different each time. But we need to find the youngest winners. So perhaps for each player, we take the minimum winner_age (the earliest time they won a match?), but that's getting complicated. Alternatively, the question might just want the three matches where the winner's age was the lowest, regardless of the player. But that would allow the same player to be listed multiple times if they were young in multiple matches. But the question says \"youngest winners\", which implies players. So probably, we need to consider each player once, taking their minimum age when they won a match. Then select the top 3 with the lowest minimum age.\n\nSo the approach would be:\n\n- For each player, find their minimum winner_age (i.e., the earliest age they won a match).\n- Then select the top 3 players with the lowest minimum age.\n- Then get their name from players table and their rank. Wait, what's the rank? The question says \"rank of the 3 youngest winners\". Where is the rank? The matches table has winner_rank, which is their rank at the time of the match. But if we take the minimum winner_age per player, we might need to take the corresponding winner_rank from that same match. Or perhaps the current rank from the rankings table. But the user didn't specify. Let me check the question again. It says \"the name and rank of the 3 youngest winners\". Since the user is referring to \"rank\" without specifying, but there's a winner_rank in matches. Maybe they want the winner_rank from the matches where they won. But if we are taking the earliest age for each player, then we need to take the corresponding winner_rank from that match. Alternatively, maybe the user wants the current ranking from the rankings table. But that's not clear. The question is ambiguous. However, given the schema, perhaps the intended answer is to use the winner_rank from the matches table. But since the user wants the rank of the winners, perhaps the winner_rank is the correct field here.\n\nSo putting it all together:\n\nFirst, for each player, find their minimum winner_age. Then join with players to get their name, and get the corresponding winner_rank from the same match. Then order by winner_age and take top 3.\n\nBut how to do that in SQL. Let's outline the steps:\n\n1. Select winner_id, min(winner_age) as min_age from matches group by winner_id. This gives each player's earliest age when they won a match.\n\nBut then, we need to get the corresponding winner_rank from that same match. Because for a player, there might be multiple matches where their winner_age is the same as their minimum. But perhaps we can just take any of those, or take the first occurrence. Alternatively, we can use a subquery to find the earliest match for each player.\n\nAlternatively, perhaps we can use a subquery to find for each player, the earliest age, then join back to matches to get the corresponding match, then get the winner_rank from that match.\n\nSo the steps would be:\n\n- Subquery to get each winner_id and their minimum winner_age.\n- Join this subquery back to the matches table on winner_id and winner_age = min_age (but there could be multiple matches with same min age for a player, but perhaps we can just take any).\n- Then join with players to get the name.\n- Then select the name and winner_rank, order by winner_age, limit 3.\n\nBut how to handle the join between the subquery and matches. Because for a player, there might be multiple matches with the same min winner_age. But perhaps using a correlated subquery or a row_number().\n\nAlternatively, using a CTE with row_number() partitioned by winner_id ordered by winner_age, then pick the first one.\n\nBut SQLite doesn't support window functions like row_number() unless using the newer versions. Wait, the user is using SQLite, and the question says to write an SQLite query. Assuming that window functions are allowed. Let me check: SQLite supports window functions since version 3.25.0 (2018-09-15). So assuming that's acceptable.\n\nSo here's a possible approach:\n\nWITH ranked_winners AS (\n    SELECT \n        m.winner_id,\n        m.winner_age,\n        m.winner_rank,\n        ROW_NUMBER() OVER (PARTITION BY m.winner_id ORDER BY m.winner_age) as rn\n    FROM matches m\n)\nSELECT \n    p.first_name || ' ' || p.last_name as name,\n    rw.winner_rank as rank\nFROM ranked_winners rw\nJOIN players p ON rw.winner_id = p.player_id\nWHERE rn = 1\nORDER BY rw.winner_age\nLIMIT 3",
+      "ok": false,
+      "ordered": true
+    },
+    {
+      "db_id": "wta_1",
+      "q": "How many players are there for each hand type?",
+      "gold": "SELECT count(*) ,  hand FROM players GROUP BY hand",
+      "gen": "SELECT hand, COUNT(*) FROM players GROUP BY hand",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "battle_death",
+      "q": "What are the name and results of the battles when the bulgarian commander is not 'Boril'",
+      "gold": "SELECT name ,  RESULT FROM battle WHERE bulgarian_commander != 'Boril'",
+      "gen": "SELECT name, result FROM battle WHERE bulgarian_commander != 'Boril'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "battle_death",
+      "q": "List the name and date the battle that has lost the ship named 'Lettice' and the ship named 'HMS Atalanta'",
+      "gold": "SELECT T1.name ,  T1.date FROM battle AS T1 JOIN ship AS T2 ON T1.id  =  T2.lost_in_battle WHERE T2.name  =  'Lettice' INTERSECT SELECT T1.name ,  T1.date FROM battle AS T1 JOIN ship AS T2 ON T1.id  =  T2.lost_in_battle WHERE T2.name  =  'HMS Atalanta'",
+      "gen": "SELECT b.name, b.date\nFROM battle b\nJOIN ship s1 ON b.id = s1.lost_in_battle\nJOIN ship s2 ON b.id = s2.lost_in_battle\nWHERE s1.name = 'Lettice' AND s2.name = 'HMS Atalanta'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "student_transcripts_tracking",
+      "q": "How is the math course described?",
+      "gold": "SELECT course_description FROM Courses WHERE course_name  =  'math'",
+      "gen": "SELECT course_description FROM Courses WHERE course_name = 'Math'",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "student_transcripts_tracking",
+      "q": "How many different departments offer degrees?",
+      "gold": "SELECT count(DISTINCT department_id) FROM Degree_Programs",
+      "gen": "SELECT COUNT(DISTINCT department_id) FROM Degree_Programs",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "student_transcripts_tracking",
+      "q": "What are the names and id of courses having at most 2 sections?",
+      "gold": "SELECT T1.course_name ,  T1.course_id FROM Courses AS T1 JOIN Sections AS T2 ON T1.course_id  =  T2.course_id GROUP BY T1.course_id HAVING count(*)  <=  2",
+      "gen": "SELECT c.course_id, c.course_name\nFROM Courses c\nLEFT JOIN Sections s ON c.course_id = s.course_id\nGROUP BY c.course_id\nHAVING COUNT(s.section_id) <= 2",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "student_transcripts_tracking",
+      "q": "What is the department description for the one whose name has the word computer?",
+      "gold": "SELECT department_description FROM Departments WHERE department_name LIKE '%computer%'",
+      "gen": "SELECT department_description FROM Departments WHERE department_name LIKE '%computer%'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "student_transcripts_tracking",
+      "q": "Find the program which most number of students are enrolled in. List both the id and the summary.",
+      "gold": "SELECT T1.degree_program_id ,  T1.degree_summary_name FROM Degree_Programs AS T1 JOIN Student_Enrolment AS T2 ON T1.degree_program_id  =  T2.degree_program_id GROUP BY T1.degree_program_id ORDER BY count(*) DESC LIMIT 1",
+      "gen": "SELECT dp.degree_program_id, dp.degree_summary_name\nFROM Student_Enrolment se\nJOIN Degree_Programs dp ON se.degree_program_id = dp.degree_program_id\nGROUP BY dp.degree_program_id\nORDER BY COUNT(DISTINCT se.student_id) DESC\nLIMIT 1",
+      "ok": true,
+      "ordered": true
+    },
+    {
+      "db_id": "student_transcripts_tracking",
+      "q": "What are the names of all courses that have some students enrolled?",
+      "gold": "SELECT DISTINCT T1.course_name FROM Courses AS T1 JOIN Student_Enrolment_Courses AS T2 ON T1.course_id  =  T2.course_id",
+      "gen": "SELECT DISTINCT c.course_name\nFROM Courses c\nJOIN Student_Enrolment_Courses sec ON c.course_id = sec.course_id",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "student_transcripts_tracking",
+      "q": "What is the phone number of the man with the first name Timmothy and the last name Ward?",
+      "gold": "SELECT cell_mobile_number FROM Students WHERE first_name  =  'Timmothy' AND last_name  =  'Ward'",
+      "gen": "SELECT cell_mobile_number FROM Students WHERE first_name = 'Timmothy' AND last_name = 'Ward'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "student_transcripts_tracking",
+      "q": "What is the first name of the student whose permanent address is different from his or her current one?",
+      "gold": "SELECT first_name FROM Students WHERE current_address_id != permanent_address_id",
+      "gen": "SELECT first_name FROM Students WHERE current_address_id != permanent_address_id",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "student_transcripts_tracking",
+      "q": "How many transcripts are released?",
+      "gold": "SELECT count(*) FROM Transcripts",
+      "gen": "SELECT COUNT(*) FROM Transcripts",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "student_transcripts_tracking",
+      "q": "What is the date and id of the transcript with the least number of results?",
+      "gold": "SELECT T2.transcript_date ,  T1.transcript_id FROM Transcript_Contents AS T1 JOIN Transcripts AS T2 ON T1.transcript_id  =  T2.transcript_id GROUP BY T1.transcript_id ORDER BY count(*) ASC LIMIT 1",
+      "gen": "SELECT T.transcript_id, T.transcript_date\nFROM Transcripts T\nLEFT JOIN Transcript_Contents TC ON T.transcript_id = TC.transcript_id\nGROUP BY T.transcript_id\nORDER BY COUNT(TC.transcript_id) ASC\nLIMIT 1",
+      "ok": false,
+      "ordered": true
+    },
+    {
+      "db_id": "student_transcripts_tracking",
+      "q": "Describe the section h.",
+      "gold": "SELECT section_description FROM Sections WHERE section_name  =  'h'",
+      "gen": "SELECT * FROM Sections WHERE section_name = 'h'",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "tvshow",
+      "q": "What are the names of all cartoons directed by Ben Jones?",
+      "gold": "SELECT Title FROM Cartoon WHERE Directed_by = \"Ben Jones\";",
+      "gen": "SELECT Title FROM Cartoon WHERE Directed_by = 'Ben Jones'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "tvshow",
+      "q": "Which country has the most of TV Channels? List the country and number of TV Channels it has.",
+      "gold": "SELECT Country ,  count(*) FROM TV_Channel GROUP BY Country ORDER BY count(*) DESC LIMIT 1;",
+      "gen": "SELECT Country, COUNT(*) AS num_channels FROM TV_Channel GROUP BY Country ORDER BY num_channels DESC LIMIT 1",
+      "ok": true,
+      "ordered": true
+    },
+    {
+      "db_id": "tvshow",
+      "q": "What are the Package Options of the TV Channels whose series names are Sky Radio?",
+      "gold": "SELECT Package_Option FROM TV_Channel WHERE series_name = \"Sky Radio\";",
+      "gen": "SELECT Package_Option FROM TV_Channel WHERE series_name = 'Sky Radio'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "tvshow",
+      "q": "What is the TV Channel that shows the cartoon \"The Rise of the Blue Beetle!\"? List the TV Channel's series name.",
+      "gold": "SELECT T1.series_name FROM TV_Channel AS T1 JOIN Cartoon AS T2 ON T1.id = T2.Channel WHERE T2.Title = \"The Rise of the Blue Beetle!\";",
+      "gen": "SELECT TV_Channel.series_name FROM TV_Channel INNER JOIN Cartoon ON TV_Channel.id = Cartoon.Channel WHERE Cartoon.Title = 'The Rise of the Blue Beetle!'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "tvshow",
+      "q": "What are 3 most highly rated episodes in the TV series table and what were those ratings?",
+      "gold": "SELECT Episode ,  Rating FROM TV_series ORDER BY Rating DESC LIMIT 3;",
+      "gen": "SELECT Episode, Rating FROM TV_series ORDER BY CAST(Rating AS REAL) DESC LIMIT 3",
+      "ok": true,
+      "ordered": true
+    },
+    {
+      "db_id": "tvshow",
+      "q": "What is the TV Channel of TV series with Episode \"A Love of a Lifetime\"? List the TV Channel's series name.",
+      "gold": "SELECT T1.series_name FROM TV_Channel AS T1 JOIN TV_series AS T2 ON T1.id = T2.Channel WHERE T2.Episode = \"A Love of a Lifetime\";",
+      "gen": "SELECT TV_Channel.series_name FROM TV_Channel INNER JOIN TV_series ON TV_Channel.id = TV_series.Channel WHERE TV_series.Episode = 'A Love of a Lifetime'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "tvshow",
+      "q": "What is the produdction code and channel of the most recent cartoon ?",
+      "gold": "select production_code ,  channel from cartoon order by original_air_date desc limit 1",
+      "gen": "SELECT Production_code, Channel FROM Cartoon ORDER BY Original_air_date DESC LIMIT 1",
+      "ok": true,
+      "ordered": true
+    },
+    {
+      "db_id": "tvshow",
+      "q": "Find the series name and country of the tv channel that is playing some cartoons directed by Ben Jones and Michael Chang?",
+      "gold": "SELECT T1.series_name ,  T1.country FROM TV_Channel AS T1 JOIN cartoon AS T2 ON T1.id = T2.Channel WHERE T2.directed_by  =  'Michael Chang' INTERSECT SELECT T1.series_name ,  T1.country FROM TV_Channel AS T1 JOIN cartoon AS T2 ON T1.id = T2.Channel WHERE T2.directed_by  =  'Ben Jones'",
+      "gen": "SELECT TV_Channel.series_name, TV_Channel.Country\nFROM TV_Channel\nINNER JOIN Cartoon ON TV_Channel.id = Cartoon.Channel\nWHERE Cartoon.Directed_by IN ('Ben Jones', 'Michael Chang')\nGROUP BY TV_Channel.id\nHAVING COUNT(DISTINCT Cartoon.Directed_by) = 2",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "tvshow",
+      "q": "What are the ids of the TV channels that do not have any cartoons directed by Ben Jones?",
+      "gold": "SELECT id FROM TV_Channel EXCEPT SELECT channel FROM cartoon WHERE directed_by  =  'Ben Jones'",
+      "gen": "SELECT id FROM TV_Channel WHERE id NOT IN (SELECT Channel FROM Cartoon WHERE Directed_by = 'Ben Jones')",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "poker_player",
+      "q": "List the final tables made and the best finishes of poker players.",
+      "gold": "SELECT Final_Table_Made ,  Best_Finish FROM poker_player",
+      "gen": "SELECT Final_Table_Made, Best_Finish FROM poker_player",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "poker_player",
+      "q": "Return the maximum final tables made across all poker players who have earnings below 200000.",
+      "gold": "SELECT max(Final_Table_Made) FROM poker_player WHERE Earnings  <  200000",
+      "gen": "SELECT MAX(Final_Table_Made) FROM poker_player WHERE Earnings < 200000",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "poker_player",
+      "q": "What is the birth date of the poker player with the lowest earnings?",
+      "gold": "SELECT T1.Birth_Date FROM people AS T1 JOIN poker_player AS T2 ON T1.People_ID  =  T2.People_ID ORDER BY T2.Earnings ASC LIMIT 1",
+      "gen": "SELECT people.Birth_Date FROM people INNER JOIN poker_player ON people.People_ID = poker_player.People_ID ORDER BY poker_player.Earnings ASC LIMIT 1",
+      "ok": true,
+      "ordered": true
+    },
+    {
+      "db_id": "poker_player",
+      "q": "Return the names of poker players sorted by their earnings descending.",
+      "gold": "SELECT T1.Name FROM people AS T1 JOIN poker_player AS T2 ON T1.People_ID  =  T2.People_ID ORDER BY T2.Earnings DESC",
+      "gen": "SELECT people.Name FROM people INNER JOIN poker_player ON people.People_ID = poker_player.People_ID ORDER BY poker_player.Earnings DESC",
+      "ok": true,
+      "ordered": true
+    },
+    {
+      "db_id": "poker_player",
+      "q": "List the names and birth dates of people in ascending alphabetical order of name.",
+      "gold": "SELECT Name ,  Birth_Date FROM people ORDER BY Name ASC",
+      "gen": "SELECT Name, Birth_Date FROM people ORDER BY Name ASC",
+      "ok": true,
+      "ordered": true
+    },
+    {
+      "db_id": "poker_player",
+      "q": "Count the number of different nationalities.",
+      "gold": "SELECT count(DISTINCT Nationality) FROM people",
+      "gen": "SELECT COUNT(DISTINCT Nationality) FROM people",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "voter_1",
+      "q": "What are the distinct states and create time of all votes?",
+      "gold": "SELECT DISTINCT state ,  created FROM votes",
+      "gen": "SELECT DISTINCT state, created FROM VOTES",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "voter_1",
+      "q": "List the area codes in which voters voted both for the contestant 'Tabatha Gehling' and the contestant 'Kelly Clauss'.",
+      "gold": "SELECT T3.area_code FROM contestants AS T1 JOIN votes AS T2 ON T1.contestant_number  =  T2.contestant_number JOIN area_code_state AS T3 ON T2.state  =  T3.state WHERE T1.contestant_name  =  'Tabatha Gehling' INTERSECT SELECT T3.area_code FROM contestants AS T1 JOIN votes AS T2 ON T1.contestant_number  =  T2.contestant_number JOIN area_code_state AS T3 ON T2.state  =  T3.state WHERE T1.contestant_name  =  'Kelly Clauss'",
+      "gen": "with AREA_CODE_STATE on state? But the area code is per state, but the question is about area codes where voters from that area code voted for both contestants. Wait, no. Wait, the phone number's state in the VOTES table is linked to the state in AREA_CODE_STATE. But the area code is part of that table. So maybe the area code can be found by joining VOTES.state with AREA_CODE_STATE.state.\n\nBut the problem is that the area code isn't directly in the VOTES table. So to get the area code for each vote, we need to join VOTES with AREA_CODE_STATE on the state. But area codes can be in different states, but each area code is unique. Wait, the primary key of AREA_CODE_STATE is area_code, and state is part of that table. So each area code is associated with a state.\n\nBut the question is about area codes where voters (from that area code?) voted for both contestants. Wait, how is the area code determined from the phone number? The phone number isn't stored in the VOTES table. Wait, the VOTES table has a phone_number column. Oh right! The phone number is there. But how to extract the area code from the phone number? For example, if the phone number is 5551234567, the area code is 555. But SQLite doesn't have a built-in function to extract the first three digits. So maybe we can use SUBSTR(phone_number, 0, 3) or something like that. Wait, but phone numbers can be stored as integers, which might have leading zeros? Wait, in SQLite, integers can't have leading zeros. Wait, the phone_number in the VOTES table is an integer. So if the phone number is stored as a number, then 5551234567 is stored as 5551234567. So to get the area code, we can take the first three digits. But how to do that in SQL. For example, if the phone number is 5551234567, then dividing by 10000000 would give 555. So maybe using (phone_number / 10000000) as the area code. But wait, if the phone number is stored as an integer, then for numbers with less than 10 digits, this might not work. But assuming that all phone numbers are 10 digits, then this approach would work. However, the problem is that the phone_number is stored as an integer, so leading zeros would be lost. But maybe the problem assumes that the area code can be derived by taking the first three digits of the phone number. So perhaps the correct approach is to cast the phone number to a string, then take the first three characters. But SQLite doesn't have a CAST function for strings? Wait, SQLite does have CAST. So maybe CAST(phone_number AS TEXT). Then SUBSTR that. So for example, SUBSTR(CAST(phone_number AS TEXT), 1, 3) would get the area code. But I need to check if that's correct.\n\nBut the problem is that the VOTES table doesn't have an area code column. So to get the area code of the voter, we need to extract it from the phone number. However, there's also the 'state' column in the VOTES table. But the question is about area codes, not states. So the answer needs to list area codes. So the approach is: For each vote, extract the area code from the phone number. Then, find area codes where there are votes for both Tabatha and Kelly.\n\nBut how to do that? Let's think. First, find all area codes where there is at least one vote for Tabatha Gehling, and also at least one vote for Kelly Clauss. But we need to make sure that it's the same area code. So perhaps we can find the area codes for each contestant, then find the intersection.\n\nAlternatively, for each area code, check if there are votes for both contestants.\n\nSo the steps would be:\n\n1. Find all votes for Tabatha Gehling, extract their area codes.\n\n2. Find all votes for Kelly Clauss, extract their area codes.\n\n3. Find the intersection of these two sets of area codes.\n\nBut how to do this in SQL.\n\nFirst, to get the contestant numbers for Tabatha and Kelly. Because the VOTES table references CONTESTANTS.contestant_number. So we need to join VOTES with CONTESTANTS to get the contestant names.\n\nSo first, get the contestant numbers for 'Tabatha Gehling' and 'Kelly Clauss'.\n\nThen, for each vote for Tabatha, extract the area code from the phone number. Similarly for Kelly.\n\nThen, find area codes that are present in both.\n\nBut how to extract the area code from the phone number. Let's proceed with the assumption that the phone number is a 10-digit number, and the area code is the first three digits. So using SUBSTR(CAST(phone_number AS TEXT), 1, 3) as area_code.\n\nSo the query would be:\n\nSELECT SUBSTR(CAST(phone_number AS TEXT), 1, 3) AS area_code\nFROM VOTES\nJOIN CONTESTANTS ON VOTES.contestant_number = CONTESTANTS.contestant_number\nWHERE contestant_name = 'Tabatha Gehling'\n\nINTERSECT\n\nSELECT SUBSTR(CAST(phone_number AS TEXT), 1, 3) AS area_code\nFROM VOTES\nJOIN CONTESTANTS ON VOTES.contestant_number = CONTESTANTS.contestant_number\nWHERE contestant_name = 'Kelly Clauss'\n\nBut wait, the problem says \"area codes in which voters voted both...\". So maybe the area code is from the AREA_CODE_STATE table. But how is that connected? For example, maybe the state in the VOTES table is linked to the state in AREA_CODE_STATE. But the question is about area codes where the voters (from that area code) voted for both contestants. But how to connect the state in the VOTES table with the area code? Wait, perhaps the state in the VOTES table is the same as the state in the AREA_CODE_STATE table. But the area code is in the AREA_CODE_STATE table. However, the phone number's area code may not be the same as the state's area code. Wait, but maybe the state in the VOTES table is the state of the voter. But the question is about area codes. So perhaps the correct approach is to use the AREA_CODE_STATE table to get the area code for the state in the VOTES table. But that's not correct because a state can have multiple area codes. For example, California has multiple area codes. So if we just take the state from the VOTES table and join with AREA_CODE_STATE, we would get all area codes in that state, but we need to find the specific area code of the voter. But the VOTES table doesn't have the area code. The only way to get the area code is from the phone number. So perhaps the initial approach of extracting the area code from the phone number is the correct way.\n\nBut the problem is that the user might have intended that the state in the VOTES table is linked to the AREA_CODE_STATE table. Let me check the schema again. The VOTES table has a foreign key on state referencing AREA_CODE_STATE.state. So each vote's state must be a valid state in AREA_CODE_STATE. But how does that help us get the area code? Well, the AREA_CODE_STATE table has area_code and state. So for a given state, there could be multiple area codes. For example, California (CA) has multiple area codes. But if we have a vote with state CA, how do we know which area code it belongs to? We can't, unless there's more information. Therefore, the only way to get the area code is from the phone number. Therefore, the correct approach is to extract the area code from the phone number.\n\nSo the initial approach is correct. Therefore, the query would involve extracting the area code from the phone number, then finding the intersection between the two contestants.\n\nBut let's proceed. Let's write the query.\n\nFirst, find the area codes where there are votes for Tabatha Gehling:\n\nSELECT SUBSTR(CAST(phone_number AS TEXT), 1, 3) AS area_code\nFROM VOTES\nJOIN CONTESTANTS ON VOTES.contestant_number = CONTESTANTS.contestant_number\nWHERE CONTESTANTS.contestant_name = 'Tabatha Gehling'\n\nSimilarly for Kelly Clauss. Then take the INTERSECT.\n\nBut the problem is that the area_code in AREA_CODE_STATE is an integer. However, the SUBSTR gives a string. But since the area_code is an integer, when we extract the first three digits as a string, converting it to integer would be the same. But for the purpose of the query, since we just need to list the area codes (as numbers), it's okay.\n\nBut wait, the question says \"list the area codes\", which are stored in AREA_CODE_STATE. So perhaps we need to get the area_code from that table. But how?\n\nAlternatively, perhaps the area code extracted from the phone number must exist in the AREA_CODE_STATE table. Because the state",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "world_1",
+      "q": "How much surface area do the countires in the Carribean cover together?",
+      "gold": "SELECT sum(SurfaceArea) FROM country WHERE Region  =  \"Caribbean\"",
+      "gen": "SELECT SUM(SurfaceArea) FROM country WHERE Region = 'Carribean'",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "world_1",
+      "q": "What are the population and life expectancies in Brazil?",
+      "gold": "SELECT Population ,  LifeExpectancy FROM country WHERE Name  =  \"Brazil\"",
+      "gen": "SELECT Population, LifeExpectancy FROM country WHERE Name = 'Brazil'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "world_1",
+      "q": "Give the name of the country in Asia with the lowest life expectancy.",
+      "gold": "SELECT Name FROM country WHERE Continent  =  \"Asia\" ORDER BY LifeExpectancy LIMIT 1",
+      "gen": "SELECT Name FROM country WHERE Continent = 'Asia' AND LifeExpectancy IS NOT NULL ORDER BY LifeExpectancy ASC LIMIT 1",
+      "ok": true,
+      "ordered": true
+    },
+    {
+      "db_id": "world_1",
+      "q": "How many people live in Gelderland district?",
+      "gold": "SELECT sum(Population) FROM city WHERE District  =  \"Gelderland\"",
+      "gen": "SELECT SUM(Population) FROM city WHERE District = 'Gelderland'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "world_1",
+      "q": "How many different forms of governments are there in Africa?",
+      "gold": "SELECT count(DISTINCT GovernmentForm) FROM country WHERE Continent  =  \"Africa\"",
+      "gen": "SELECT COUNT(DISTINCT GovernmentForm) FROM country WHERE Continent = 'Africa'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "world_1",
+      "q": "Which continent has the most diverse languages?",
+      "gold": "SELECT T1.Continent FROM country AS T1 JOIN countrylanguage AS T2 ON T1.Code  =  T2.CountryCode GROUP BY T1.Continent ORDER BY COUNT(*) DESC LIMIT 1",
+      "gen": "SELECT Continent, COUNT(DISTINCT Language) AS language_count\nFROM country\nJOIN countrylanguage ON country.Code = countrylanguage.CountryCode\nGROUP BY Continent\nORDER BY language_count DESC\nLIMIT 1",
+      "ok": false,
+      "ordered": true
+    },
+    {
+      "db_id": "world_1",
+      "q": "Give the names of countries with English and French as official languages.",
+      "gold": "SELECT T1.Name FROM country AS T1 JOIN countrylanguage AS T2 ON T1.Code  =  T2.CountryCode WHERE T2.Language  =  \"English\" AND T2.IsOfficial  =  \"T\" INTERSECT SELECT T1.Name FROM country AS T1 JOIN countrylanguage AS T2 ON T1.Code  =  T2.CountryCode WHERE T2.Language  =  \"French\" AND T2.IsOfficial  =  \"T\"",
+      "gen": "SELECT c.Name\nFROM country c\nWHERE c.Code IN (\n    SELECT cl.CountryCode\n    FROM countrylanguage cl\n    WHERE (cl.Language = 'English' AND cl.IsOfficial = 'T')\n       OR (cl.Language = 'French' AND cl.IsOfficial = 'T')\n    GROUP BY cl.CountryCode\n    HAVING COUNT(DISTINCT cl.Language) = 2\n)",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "world_1",
+      "q": "Which language is the most popular on the Asian continent?",
+      "gold": "SELECT T2.Language FROM country AS T1 JOIN countrylanguage AS T2 ON T1.Code  =  T2.CountryCode WHERE T1.Continent  =  \"Asia\" GROUP BY T2.Language ORDER BY COUNT (*) DESC LIMIT 1",
+      "gen": "SELECT cl.Language \nFROM country c \nJOIN countrylanguage cl ON c.Code = cl.CountryCode \nWHERE c.Continent = 'Asia' \nGROUP BY cl.Language \nORDER BY SUM(c.Population * cl.Percentage / 100) DESC \nLIMIT 1",
+      "ok": false,
+      "ordered": true
+    },
+    {
+      "db_id": "world_1",
+      "q": "What are the name, population, and life expectancy of the largest Asian country by land?",
+      "gold": "SELECT Name ,  Population ,  LifeExpectancy FROM country WHERE Continent  =  \"Asia\" ORDER BY SurfaceArea DESC LIMIT 1",
+      "gen": "SELECT Name, Population, LifeExpectancy FROM country WHERE Continent = 'Asia' ORDER BY SurfaceArea DESC LIMIT 1",
+      "ok": true,
+      "ordered": true
+    },
+    {
+      "db_id": "world_1",
+      "q": "What is the total number of unique official languages spoken in the countries that are founded before 1930?",
+      "gold": "SELECT count(DISTINCT T2.Language) FROM country AS T1 JOIN countrylanguage AS T2 ON T1.Code  =  T2.CountryCode WHERE  IndepYear  <  1930 AND T2.IsOfficial  =  \"T\"",
+      "gen": "SELECT COUNT(DISTINCT cl.Language) FROM country c JOIN countrylanguage cl ON c.Code = cl.CountryCode WHERE c.IndepYear < 1930 AND cl.IsOfficial = 'T'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "world_1",
+      "q": "What are the Asian countries which have a population larger than that of any country in Africa?",
+      "gold": "SELECT Name FROM country WHERE Continent  =  \"Asia\"  AND population  >  (SELECT min(population) FROM country WHERE Continent  =  \"Africa\")",
+      "gen": "SELECT Name FROM country WHERE Continent = 'Asia' AND Population > (SELECT MAX(Population) FROM country WHERE Continent = 'Africa')",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "world_1",
+      "q": "Which cities are in European countries where English is not the official language?",
+      "gold": "SELECT DISTINCT T2.Name FROM country AS T1 JOIN city AS T2 ON T2.CountryCode  =  T1.Code WHERE T1.Continent  =  'Europe' AND T1.Name NOT IN (SELECT T3.Name FROM country AS T3 JOIN countrylanguage AS T4 ON T3.Code  =  T4.CountryCode WHERE T4.IsOfficial  =  'T' AND T4.Language  =  'English')",
+      "gen": "SELECT city.Name \nFROM city \nJOIN country ON city.CountryCode = country.Code \nLEFT JOIN countrylanguage ON country.Code = countrylanguage.CountryCode \n    AND countrylanguage.Language = 'English' \n    AND countrylanguage.IsOfficial = 'T' \nWHERE country.Continent = 'Europe' \n    AND countrylanguage.CountryCode IS NULL",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "world_1",
+      "q": "Give the name, population, and head of state for the country that has the largest area.",
+      "gold": "SELECT Name ,  population ,  HeadOfState FROM country ORDER BY SurfaceArea DESC LIMIT 1",
+      "gen": "SELECT Name, Population, HeadOfState\nFROM country\nORDER BY SurfaceArea DESC\nLIMIT 1",
+      "ok": true,
+      "ordered": true
+    },
+    {
+      "db_id": "world_1",
+      "q": "Find the average life expectancy and total population for each continent where the average life expectancy is shorter than 72?",
+      "gold": "SELECT sum(Population) ,  avg(LifeExpectancy) ,  Continent FROM country GROUP BY Continent HAVING avg(LifeExpectancy)  <  72",
+      "gen": "SELECT Continent, AVG(LifeExpectancy) AS AvgLifeExpectancy, SUM(Population) AS TotalPopulation FROM country GROUP BY Continent HAVING AvgLifeExpectancy < 72",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "world_1",
+      "q": "Return the names of the 3 countries with the fewest people.",
+      "gold": "SELECT Name FROM country ORDER BY Population ASC LIMIT 3",
+      "gen": "SELECT Name FROM country ORDER BY Population ASC LIMIT 3",
+      "ok": true,
+      "ordered": true
+    },
+    {
+      "db_id": "world_1",
+      "q": "What are the cities whose population is between 160000 and 900000?",
+      "gold": "SELECT name FROM city WHERE Population BETWEEN 160000 AND 900000",
+      "gen": "SELECT * FROM city WHERE Population BETWEEN 160000 AND 900000",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "world_1",
+      "q": "Count the number of countries for which Spanish is the predominantly spoken language.",
+      "gold": "SELECT count(*) ,   max(Percentage) FROM countrylanguage WHERE LANGUAGE  =  \"Spanish\" GROUP BY CountryCode",
+      "gen": "with their percentages. To find if Spanish is the predominant, we need to check if for that country, Spanish has the highest percentage among all languages. But that would require comparing with other languages for the same country, which complicates the query.\n\nBut maybe the question is simpler. Perhaps \"predominantly\" here is defined as Spanish being the official language. The IsOfficial column can be 'T' or 'F'. So if a country has Spanish as an official language, maybe that's considered predominant. However, the problem statement isn't clear. But given the data available, maybe the intended approach is to look for countries where Spanish is an official language.\n\nAlternatively, maybe the question is just looking for countries where Spanish is spoken by more than 50% of the population. But the Percentage column would need to be checked for that. However, without knowing the exact threshold, perhaps the problem expects using the IsOfficial flag. Let me check the schema again.\n\nLooking at the countrylanguage table's IsOfficial column: it's a text field with default 'F'. So if IsOfficial is 'T' for Spanish in a country, that might indicate it's the official language. But does that mean it's the predominant? Not necessarily, but perhaps the question assumes that. Alternatively, maybe the problem is using \"predominantly\" to mean that Spanish is the official language. \n\nAlternatively, maybe the question is looking for countries where Spanish is the most spoken language, regardless of being official. To find that, for each country, we need to check if Spanish's percentage is higher than any other language's percentage for that country. But that's more complex. How to write that in SQL?\n\nBut perhaps the problem is intended to be simpler. Let me think about the possible answers. For example, in the countrylanguage table, each entry is a language for a country. So if a country has Spanish listed with a high percentage, but how do we know if it's the highest? Without comparing with other languages for the same country, it's hard. \n\nBut maybe the question is using \"predominantly\" to mean that Spanish is the official language. Let's check the question again: \"predominantly spoken language\". The term \"predominantly\" could mean that it's the main one, which could be the official one. So perhaps the correct approach is to look for entries in countrylanguage where Language is 'Spanish' and IsOfficial is 'T'. Then count the distinct CountryCode's.\n\nAlternatively, maybe the problem is using \"predominantly\" to mean that Spanish is the most spoken, which could be determined by having the highest percentage for that country. But how to write that?\n\nLet me think. To find countries where Spanish is the most spoken language, we need to compare the percentage of Spanish with other languages in the same country. For each country, find the maximum percentage, and see if Spanish is that maximum. \n\nThis would require a subquery. For example, for each country where Spanish is a language, check that there's no other language in that country with a higher percentage. \n\nSo the query would be something like:\n\nSELECT COUNT(DISTINCT cl.CountryCode)\nFROM countrylanguage cl\nWHERE cl.Language = 'Spanish'\nAND cl.Percentage = (\n    SELECT MAX(cl2.Percentage)\n    FROM countrylanguage cl2\n    WHERE cl2.CountryCode = cl.CountryCode\n)",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "orchestra",
+      "q": "What are the names of conductors whose nationalities are not \"USA\"?",
+      "gold": "SELECT Name FROM conductor WHERE Nationality != 'USA'",
+      "gen": "SELECT Name FROM conductor WHERE Nationality != 'USA'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "orchestra",
+      "q": "Return the maximum and minimum shares for performances that do not have the type \"Live final\".",
+      "gold": "SELECT max(SHARE) ,  min(SHARE) FROM performance WHERE TYPE != \"Live final\"",
+      "gen": "SELECT MAX(CAST(Share AS REAL)) AS Max_Share, MIN(CAST(Share AS REAL)) AS Min_Share FROM performance WHERE Type != 'Live final'",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "orchestra",
+      "q": "Show the names of conductors and the orchestras they have conducted.",
+      "gold": "SELECT T1.Name ,  T2.Orchestra FROM conductor AS T1 JOIN orchestra AS T2 ON T1.Conductor_ID  =  T2.Conductor_ID",
+      "gen": "SELECT conductor.Name, orchestra.Orchestra FROM conductor INNER JOIN orchestra ON conductor.Conductor_ID = orchestra.Conductor_ID",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "orchestra",
+      "q": "What are the names of conductors who have conducted orchestras founded after the year 2008?",
+      "gold": "SELECT T1.Name FROM conductor AS T1 JOIN orchestra AS T2 ON T1.Conductor_ID  =  T2.Conductor_ID WHERE Year_of_Founded  >  2008",
+      "gen": "SELECT DISTINCT conductor.Name\nFROM conductor\nJOIN orchestra ON conductor.Conductor_ID = orchestra.Conductor_ID\nWHERE orchestra.Year_of_Founded > 2008",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "orchestra",
+      "q": "List the names of orchestras that have no performance.",
+      "gold": "SELECT Orchestra FROM orchestra WHERE Orchestra_ID NOT IN (SELECT Orchestra_ID FROM performance)",
+      "gen": "SELECT o.Orchestra \nFROM orchestra o \nLEFT JOIN performance p ON o.Orchestra_ID = p.Orchestra_ID \nWHERE p.Performance_ID IS NULL",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "orchestra",
+      "q": "What are years of founding for orchestras that have had more than a single performance?",
+      "gold": "SELECT Year_of_Founded FROM orchestra AS T1 JOIN performance AS T2 ON T1.Orchestra_ID  =  T2.Orchestra_ID GROUP BY T2.Orchestra_ID HAVING COUNT(*)  >  1",
+      "gen": "SELECT DISTINCT o.Year_of_Founded\nFROM orchestra o\nJOIN performance p ON o.Orchestra_ID = p.Orchestra_ID\nGROUP BY o.Orchestra_ID\nHAVING COUNT(p.Performance_ID) > 1",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "network_1",
+      "q": "What grade is Kyle in?",
+      "gold": "SELECT grade FROM Highschooler WHERE name  =  \"Kyle\"",
+      "gen": "SELECT grade FROM Highschooler WHERE name = 'Kyle'",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "network_1",
+      "q": "Count the number of high schoolers in grades 9 or 10.",
+      "gold": "SELECT count(*) FROM Highschooler WHERE grade  =  9 OR grade  =  10",
+      "gen": "SELECT COUNT(*) FROM Highschooler WHERE grade IN (9, 10)",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "network_1",
+      "q": "Show the student IDs and numbers of friends corresponding to each.",
+      "gold": "SELECT student_id ,  count(*) FROM Friend GROUP BY student_id",
+      "gen": "SELECT H.ID, COUNT(F.friend_id) AS num_friends\nFROM Highschooler H\nLEFT JOIN Friend F ON H.ID = F.student_id\nGROUP BY H.ID",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "network_1",
+      "q": "What are the names of high schoolers who have 3 or more friends?",
+      "gold": "SELECT T2.name FROM Friend AS T1 JOIN Highschooler AS T2 ON T1.student_id  =  T2.id GROUP BY T1.student_id HAVING count(*)  >=  3",
+      "gen": "with the Highschooler and Friend tables.\n\nFirst, the Friend table has student_id and friend_id. Each row represents a friendship. But since the primary key is (student_id, friend_id), each pair is unique. However, I need to count how many friends each student has.\n\nWait, but friendships are mutual? Like if student A is friends with B, does that count as one friend for both? Or does each entry count as a separate friend? The way the table is structured, each friendship is stored once. For example, if A is friends with B, there's a row (A, B) and maybe another (B, A), but I think the primary key would prevent duplicates. Wait, no. The primary key is (student_id, friend_id), so if A is friends with B, you can't have another entry for (A, B). But if A and B are friends, the table might only have one entry. Wait, the problem says that the Friend table's primary key is (student_id, friend_id). So if A is friends with B, there's a row (A,B) and another row (B,A)? Or just one? Probably, the table is designed such that each friendship is stored once. For example, if A and B are friends, there's a row (A,B) and (B,A) would be redundant. But since the primary key is both columns, maybe they only store each pair once. Wait, no. If you have (A,B) and then try to insert (B,A), since the primary key is both columns, it's a different key. But that would count as two entries. But that's not correct because each friendship is mutual. So maybe the Friend table is structured so that each friendship is stored once, perhaps with student_id < friend_id to avoid duplicates. But the problem doesn't specify that. So I can't assume that. Therefore, when counting friends, if the table has both (A,B) and (B,A), that would count as two entries, but they actually represent the same friendship. But the question is about how many friends a student has. So if A is friends with B, then A has one friend (B), and B has one friend (A). But if the Friend table has both entries (A,B) and (B,A), then when we count the number of friends for A, we would count both entries? That would be incorrect. Therefore, perhaps the Friend table is designed such that each friendship is stored only once. For example, maybe the student_id is always the lower ID, so that each pair is stored once. But since the problem didn't specify that, I can't rely on that. Therefore, when counting friends for a student, I need to count all entries where the student is either the student_id or the friend_id. Wait no, no. Wait, the Friend table's student_id is the student, and friend_id is their friend. So for example, if A is friends with B, then there's a row (A,B) and a row (B,A)? Or just one? No, because the primary key is (student_id, friend_id). So if you have a row (A,B), you can't have (A,B) again. But (B,A) would be a different primary key. However, in reality, friendships are mutual. So perhaps the Friend table is structured so that each friendship is stored once. But the problem's schema doesn't specify that. Therefore, when counting friends, we need to count how many times a student appears in either the student_id or friend_id. Wait, no. Because if the Friend table is structured such that each row represents a one-way friendship. For example, (A,B) means A is friends with B, but B might not be friends with A. But in reality, friendships are mutual. However, the problem's schema doesn't specify that. Therefore, perhaps the Friend table is designed such that each friendship is stored once, with student_id and friend_id, and the friendship is mutual. Therefore, to count the number of friends for a student, we need to count all entries where the student is either the student_id or the friend_id, but then divide by 2 to avoid double-counting. Wait, but that's complicated. Alternatively, maybe the Friend table is structured so that each student's friends are listed in the friend_id column, and each friendship is stored once. For example, if A and B are friends, there is one entry (A,B) and one entry (B,A). Or maybe just one entry. This is unclear.\n\nBut given the standard way these problems are structured, I think that the Friend table is such that each row represents a one-way relationship. For example, if A is friends with B, then there is a row (A,B) and also (B,A), but that's not necessary. However, the problem's schema doesn't enforce that. Therefore, perhaps the correct approach is to count for each student how many times they appear in the student_id column. Because the Friend table's student_id is the student, and friend_id is their friend. So if A has friends B and C, then there are entries (A,B) and (A,C). Therefore, the count of friends for A is the number of rows where student_id is A. Therefore, to find the number of friends each student has, we can group by student_id in the Friend table and count the number of friend_ids. However, this would only count the friends where the student is the student_id. But what about if someone else has them as a friend? No, because if the friendship is mutual, then if B is friends with A, there would be a row (B,A). But for the purpose of counting A's friends, that row (B,A) would not contribute to A's friend count. Therefore, if the Friend table only stores one-way relationships, then to count the total friends, we need to count how many entries are there where the student is either in student_id or friend_id. But that's not correct. Wait, no. If the Friend table is designed such that each friendship is stored once, then for each friendship between A and B, there is one row. But how to count the number of friends for each student. For example, if A is friends with B and C, then there are two rows where A is in student_id. But if the Friend table only has (A,B) and (A,C), then the count is correct. However, if the Friend table only has (A,B) and (C,A), then counting all rows where A is in either student_id or friend_id would give the correct count. Therefore, perhaps the correct approach is to count all occurrences of a student's ID in both columns. For example, for each student, count the number of times their ID appears in student_id or friend_id in the Friend table. But since each friendship is represented once, but each friendship contributes to two friends (A and B are friends, so each has one friend). However, if we count all occurrences, then for each friendship, it's counted twice. Therefore, if we want to count the number of friends for a student, we need to count how many times their ID appears in either column, but that would overcount. Wait, no. Let me think again. Suppose A is friends with B. Then in the Friend table, there is one row (A,B). So for A, this counts as one friend. For B, this row doesn't count in their friend count unless we look at friend_id. Therefore, if we only count the number of rows where student_id is the student, then B's friend count would not include A unless there's a row (B,A). Therefore, this suggests that the Friend table is designed such that each friendship is stored in both directions. But that's not efficient. Therefore, perhaps the Friend table is designed such that each friendship is stored once, and to count friends, we need to count how many times a student's ID appears in either column. But then, each friendship contributes to two friends. For example, if there's a row (A,B), then A has B as a friend, and B has A as a friend. Therefore, to count the total friends for each student, we need to count how many times their ID appears in either student_id or friend_id, and then divide by 1 (no, wait, no division needed). Wait, no. If each friendship is stored once, then for each friendship between A and B, A's friend count increases by 1 and B's friend count increases by 1. Therefore, to get the total friends for a student, we need to count how many times their ID appears in either column. For example, if A is friends with B and C, then there are two rows where A is in one of the columns. But if the Friend table only has (A,B) and (A,C), then A's count is 2. But if the Friend table has (A,B) and (C,A), then A's count is 2. Therefore, to get the correct count, we need to count all occurrences of the student's ID in either column. Therefore, the approach is to do a query that selects the student's ID, and for each, count the number of times they appear in student_id or friend_id. However, since each friendship is represented once, but contributes to two friends, this count would be accurate. Therefore, the correct way is to do a UNION of the student_id and friend_id, then count. Alternatively, we can use a query that groups by the student's ID and counts the number of friends.\n\nSo, here's the plan: For each high school",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "network_1",
+      "q": "Show names of all high school students who do not have any friends.",
+      "gold": "SELECT name FROM Highschooler EXCEPT SELECT T2.name FROM Friend AS T1 JOIN Highschooler AS T2 ON T1.student_id  =  T2.id",
+      "gen": "SELECT name FROM Highschooler WHERE ID NOT IN (SELECT student_id FROM Friend UNION SELECT friend_id FROM Friend)",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "network_1",
+      "q": "How many likes correspond to each student id?",
+      "gold": "SELECT student_id ,  count(*) FROM Likes GROUP BY student_id",
+      "gen": "SELECT student_id, COUNT(*) FROM Likes GROUP BY student_id",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "network_1",
+      "q": "Show the names of students who have a grade higher than 5 and have at least 2 friends.",
+      "gold": "SELECT T2.name FROM Friend AS T1 JOIN Highschooler AS T2 ON T1.student_id  =  T2.id WHERE T2.grade  >  5 GROUP BY T1.student_id HAVING count(*)  >=  2",
+      "gen": "with ID, name, grade. The Friend table has student_id and friend_id, and each pair is a primary key. The Likes table isn't needed here since the question is about friends, not likes.\n\nSo the main tables involved are Highschooler and Friend. The task is to find students meeting two conditions: grade > 5 and at least two friends.\n\nFor the grade part, that's straightforward: Highschooler.grade > 5.\n\nFor the friends count, I need to count how many friends each student has. Since the Friend table has student_id and friend_id, each row represents a friendship. But wait, is the friendship mutual? Like, if student A is friends with B, does that mean B is also friends with A? But the question is about how many friends each student has. So for each student_id in Friend, the count of their friend_id entries plus the count of entries where they are friend_id? Wait, no. Because the Friend table is a list of all friendships. For example, if Alice is friends with Bob, there's a row (Alice's ID, Bob's ID). But Bob's friends would include rows where his ID is the student_id. But to count the number of friends for each student, we need to count how many times their ID appears in either student_id or friend_id? No, wait. Because each friendship is stored once, as a pair. So if Alice and Bob are friends, there's one entry (Alice, Bob). Unless there's also (Bob, Alice), but since the primary key is (student_id, friend_id), and since a student can't be friends with themselves, but the problem probably ensures that. However, in reality, friendships are mutual. But the Friend table might only store each friendship once, with student_id and friend_id. So for counting the number of friends, each student's friend count is the number of times they appear in student_id plus the number of times they appear in friend_id? No, that would double count. Because each friendship is represented once. For example, Alice and Bob's friendship is stored once. So Alice's friend count is incremented by 1 in the row where she is the student_id, and Bob's friend count is incremented by 1 in the row where he is the friend_id. But if we want to count the total friends for a student, we need to count how many times their ID appears in either column. However, that would count each friendship once. So for a student, their friends are all entries where they are the student_id (they are the one who added the friend?) or where they are the friend_id (someone else added them as a friend). But in reality, the Friend table should represent mutual friendships. However, perhaps the Friend table is structured such that each friendship is stored once, with student_id < friend_id to avoid duplicates. But the problem doesn't specify that. So to be safe, perhaps the correct way is to count the number of friends each student has by considering both columns.\n\nWait, but if the Friend table is structured such that each friendship is stored once (e.g., (A,B)), then for counting friends of A, we look in both columns. For example, A's friends are B, and B's friends are A. But if we count all occurrences of a student's ID in both columns, then each friendship is counted once for each friend. Wait, no. For example, if there's a friendship between A and B, then in the Friend table, there's one row where student_id is A and friend_id is B. For student A, this counts as one friend. For student B, they have a friend A. So to count the total friends for a student, we need to count how many times their ID appears in either student_id or friend_id, but grouped by student. Wait, no. Because for each friendship, the student's ID is in one column or the other. So for each student, their friends are in the friend_id column when they are the student_id, and in the student_id column when they are the friend_id. So to get the total number of friends, we can do a UNION of the two columns and count. Alternatively, use a query that counts the number of entries where student_id is the given ID, plus the number where friend_id is the given ID. But since each friendship is stored once, adding those two would count each friendship once. For example, if a student has 5 friends, then there would be 5 entries where they are the student_id and friend_id is their friend, and 0 entries where they are the friend_id. Wait, no. If the Friend table is structured such that each friendship is stored once (e.g., (A,B)), then for student A, their friends are B, and for student B, their friends are A. So to count friends for each student, you need to count how many times their ID appears in either column. But if you do that, then for each friendship between A and B, both A and B's friend count increases by 1. But how to do that in SQL?\n\nAlternatively, perhaps the Friend table is designed such that each friendship is stored once, but when you want to count friends for a student, you can count all entries where the student is either the student_id or the friend_id. Wait, no. Because if you have a row (A,B), then for student A, B is their friend. For student B, A is their friend. So for each student, their friends are in the friend_id column when they are the student_id, and in the student_id column when they are the friend_id. Therefore, to count the total friends for a student, you need to count how many times their ID appears in student_id (each entry represents a friend they have) plus how many times their ID appears in friend_id (each entry represents someone who is their friend). However, if the Friend table is designed such that each friendship is stored once (i.e., (A,B) is stored once, not (B,A)), then for a student, the number of friends would be the count of entries where they are in student_id (they have that friend) plus the count where they are in friend_id (someone else has them as a friend). But since each friendship is stored once, the total friends would be the sum of these two counts. However, this would actually count each friendship once. For example, if A is friends with B, then in the Friend table, there's one row (A,B). For student A, the count in student_id is 1 (B), and in friend_id, there are 0 entries (since no one has A as their friend_id except this row). Wait, no. For student B, their friend_id would include A. So for student B, when you look at their student_id entries (they might have other friends), but for the row (A,B), when considering student B, their friends are in the friend_id column where their student_id is B. But in this case, there is no such row. The row is (A,B), so student_id is A, friend_id is B. So for student B, their friends would be entries where their ID is the student_id. Unless there's another row (B, someone else). Therefore, if the Friend table only stores each friendship once, then for a student, their friends are those in the friend_id column where their ID is the student_id. Because if someone else is friends with them, that would be stored as (other_student, this_student), and then when we look at student_id = other_student and friend_id = this_student. Therefore, to count the number of friends a student has, we need to count how many times their ID appears as friend_id (i.e., how many people have them as a friend) plus how many times their ID appears as student_id (the friends they've added). But if the Friend table is designed to store each friendship only once, then those two counts would be separate. Wait, no. For example, if A is friends with B, then there's a row (A,B). So for student A, they have 1 friend (B). For student B, they have 0 friends in the student_id column (since their ID is B, and there's no row where student_id is B and friend_id is someone else), unless there's another row (B,C). Therefore, if the Friend table is designed such that each friendship is stored once, then to count the number of friends a student has, you need to count how many times their ID appears in the student_id column (they have those friends) plus how many times their ID appears in the friend_id column (others have them as friends). Wait, but that would not be correct. Because if the friendship is stored once, then for student A, their friends are all the friend_id entries where student_id is A. For student B, their friends are all the friend_id entries where student_id is B. But if the friendship between A and B is stored as (A,B), then student B's friends would not include A unless there's another entry (B,A). Therefore, perhaps the Friend table is designed such that each friendship is stored in both directions, but that would be redundant. Alternatively, perhaps the Friend table is designed to have mutual friendships, meaning that if (A,B) exists, then (B,A) also exists. But that's not indicated in the schema. The schema's primary key is (student_id, friend_id), so if (A,B) is present, (B,A) can also be present as a separate entry. However, the problem doesn't",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "network_1",
+      "q": "What is the lowest grade of students who do not have any friends?",
+      "gold": "SELECT min(grade) FROM Highschooler WHERE id NOT IN (SELECT T1.student_id FROM Friend AS T1 JOIN Highschooler AS T2 ON T1.student_id  =  T2.id)",
+      "gen": "with the Highschooler table and the Friend table.\n\nSo, students who do not have any friends. That means there's no entry in the Friend table where their ID is the student_id. Because the Friend table has student_id and friend_id. So if a student isn't listed as a student_id in the Friend table, they have no friends. Wait, but what about if they are a friend_id? Like, if someone else lists them as a friend. Oh, right, but the question is about friends. So if a student has no friends, that means they have no entries in the Friend table either as student_id or friend_id? Wait, no. Because the Friend relationship is mutual? Or not necessarily. Because if Alice is friends with Bob, then there's an entry where student_id is Alice and friend_id is Bob. But Bob's entry as a student_id would have friend_id as Alice. So if we're looking for students with no friends, we need to check if there are no entries where they are either the student_id or the friend_id. Wait, no. Because if a student has no friends, then there should be no records where they are in the Friend table at all. Because if they had any friends, there would be an entry with their ID as the student_id. Because the Friend table's student_id is the student who has the friend. So if a student has no friends, then they don't appear in the Friend table as a student_id. But maybe as a friend_id? Like, if someone else has them as a friend. But in that case, they would have at least one friend. Because if Bob is friends with Alice, then Alice is Bob's friend. So if a student is someone else's friend, that doesn't mean they have a friend. Wait, but friendship is mutual? Or is it? The Friend table's structure is such that each friendship is stored as two entries? Or is it one entry? The primary key is (student_id, friend_id), so each pair is unique. But the problem says that the Friend table's primary key is (student_id, friend_id), and the foreign keys reference Highschooler(ID). So, for example, if Alice and Bob are friends, there's an entry where student_id is Alice and friend_id is Bob, and another where student_id is Bob and friend_id is Alice? Or is there just one entry? Probably not. Because if the table is designed to store each friendship as a single entry, but the primary key is (student_id, friend_id), maybe each friendship is stored once. Wait, but if it's a mutual friendship, then perhaps the table is designed such that each friendship is stored once, but the way the data is structured, if you have a row (A, B), then A is friends with B, but there's no need for (B, A) if the relationship is mutual. However, the problem doesn't specify that. So perhaps the Friend table can have entries in both directions. But for the purpose of this query, we need to find students who have no friends. So, students who are not present in the Friend table as student_id. Because if they had any friends, there would be entries where their ID is the student_id. Because the Friend table's student_id is the student who has the friend. So if a student has no friends, then there are no entries in the Friend table where their ID is the student_id. However, they might be a friend_id in some entry, but that would mean someone else is their friend. Wait, no. If someone else has them as a friend, that would mean that the student has at least one friend. For example, if Bob is friends with Alice, then in the Friend table, there's an entry where student_id is Bob and friend_id is Alice. So Alice is Bob's friend. Therefore, Alice is a friend of Bob, but does that mean Alice has Bob as a friend? Well, the way the Friend table is structured, if Alice has no entries where her ID is the student_id, then she has no friends. But if there are entries where her ID is the friend_id, that just means others have her as friends. But according to the problem's schema, does that imply that Alice has a friend? For example, if Bob is friends with Alice, then the Friend table would have (Bob, Alice) and (Alice, Bob)? Or is it a one-way relationship? This is unclear. However, in most social network databases, friendships are mutual, and they might store each friendship as two entries. But if the Friend table is designed such that each friendship is stored once, perhaps as a single entry. However, the problem doesn't specify that. Therefore, for the purpose of this query, we need to assume that if a student has no entries in the Friend table where they are the student_id, then they have no friends. Because the Friend table's student_id represents the student whose friends are listed. Therefore, to find students with no friends, we need to find those who do not appear in the Friend table as student_id. \n\nSo, the approach is to select all Highschooler records where their ID is not present in the Friend table's student_id column. Then, from those students, find the minimum grade.\n\nSo the steps would be:\n\n1. Find all Highschooler IDs that do not exist in the Friend table's student_id column.\n\nBut wait, what if a student has no friends, meaning they are not in the Friend table at all. So, the Friend table's student_id is the student's ID. So, if a student has no friends, there are no rows in Friend where student_id equals their ID.\n\nTherefore, the query would be:\n\nSELECT MIN(grade) FROM Highschooler WHERE ID NOT IN (SELECT student_id FROM Friend)",
+      "ok": false,
+      "ordered": false
+    },
+    {
+      "db_id": "dog_kennels",
+      "q": "Which dogs have not cost their owner more than 1000 for treatment ? List the dog names .",
+      "gold": "select name from dogs where dog_id not in ( select dog_id from treatments group by dog_id having sum(cost_of_treatment)  >  1000 )",
+      "gen": "SELECT Dogs.name\nFROM Dogs\nLEFT JOIN Treatments ON Dogs.dog_id = Treatments.dog_id\nGROUP BY Dogs.dog_id, Dogs.name\nHAVING COALESCE(SUM(Treatments.cost_of_treatment), 0) <= 1000",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "dog_kennels",
+      "q": "Return the owner id, first name and last name of the owner who has the most dogs.",
+      "gold": "SELECT T1.owner_id ,  T2.first_name ,  T2.last_name FROM Dogs AS T1 JOIN Owners AS T2 ON T1.owner_id  =  T2.owner_id GROUP BY T1.owner_id ORDER BY count(*) DESC LIMIT 1",
+      "gen": "SELECT Owners.owner_id, Owners.first_name, Owners.last_name\nFROM Owners\nINNER JOIN Dogs ON Owners.owner_id = Dogs.owner_id\nGROUP BY Owners.owner_id\nORDER BY COUNT(Dogs.dog_id) DESC\nLIMIT 1",
+      "ok": true,
+      "ordered": true
+    },
+    {
+      "db_id": "dog_kennels",
+      "q": "How many dogs went through any treatments?",
+      "gold": "SELECT count(DISTINCT dog_id) FROM Treatments",
+      "gen": "SELECT COUNT(DISTINCT dog_id) FROM Treatments",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "dog_kennels",
+      "q": "Return the first name, last name and email of the owners living in a state whose name contains the substring 'North'.",
+      "gold": "SELECT first_name ,  last_name ,  email_address FROM Owners WHERE state LIKE '%North%'",
+      "gen": "SELECT first_name, last_name, email_address FROM Owners WHERE state LIKE '%North%' COLLATE NOCASE",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "dog_kennels",
+      "q": "How many owners temporarily do not have any dogs?",
+      "gold": "SELECT count(*) FROM Owners WHERE owner_id NOT IN ( SELECT owner_id FROM Dogs )",
+      "gen": "SELECT COUNT(*) FROM Owners WHERE owner_id NOT IN (SELECT DISTINCT owner_id FROM Dogs)",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "singer",
+      "q": "What is the count of singers?",
+      "gold": "SELECT count(*) FROM singer",
+      "gen": "SELECT COUNT(*) FROM singer",
+      "ok": true,
+      "ordered": false
+    },
+    {
+      "db_id": "singer",
+      "q": "Show the names of singers that have more than one song.",
+      "gold": "SELECT T1.Name FROM singer AS T1 JOIN song AS T2 ON T1.Singer_ID  =  T2.Singer_ID GROUP BY T1.Name HAVING COUNT(*)  >  1",
+      "gen": "SELECT s.Name\nFROM singer s\nJOIN song so ON s.Singer_ID = so.Singer_ID\nGROUP BY s.Singer_ID\nHAVING COUNT(*) > 1",
+      "ok": true,
+      "ordered": false
+    }
+  ]
+}

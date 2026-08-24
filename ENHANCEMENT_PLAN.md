@@ -1,10 +1,20 @@
 # DBWhisper — Enhancement Plan (Productionization Roadmap)
 
+> **SUPERSEDED (2026-08-24).** This was the v1 productionization plan, written against the
+> pre-v2 codebase. It is kept for history and is **not** an accurate description of the project.
+> The current plan, architecture and delivery log live in [`docs/v2/`](docs/v2/) — start with
+> [`IMPLEMENTATION_ROADMAP.md`](docs/v2/IMPLEMENTATION_ROADMAP.md). Where the two disagree,
+> `docs/v2/` is correct.
+
 > Goal: bring **dbwhisper** (the NL→SQL "SQL Insight Agent") up to the same production standard as
 > **crownwager** and **tradepulse** — versioned on GitHub, CI-gated, containerized, and deployed free on
 > Hugging Face + Vercel + Neon + Upstash. Aligned to `crownwager/docs/MODERNIZATION_PLAYBOOK.md`.
 >
-> **Status: PLAN ONLY — nothing here is built yet. Review and adjust before we execute.**
+> **Status when written (2026-06): PLAN ONLY — nothing here was built yet.**
+> That sentence stayed in this file for two months after it stopped being true, which is the
+> reason it is quoted rather than deleted: a stale status line is worse than no status line,
+> because a reader trusts it. Every ❌ row in the table below has since shipped — the third
+> column records what replaced it, verified against the repository on 2026-08-24.
 
 ---
 
@@ -24,19 +34,19 @@ clean and well-structured** — this is a *"Reuse as-is + add the shell"* case, 
   and "security-first" principles already.
 
 **What's missing vs the blueprint (the work):**
-| Blueprint piece | dbwhisper today |
-|---|---|
-| Git + GitHub repo | ❌ no `.git` at all — never versioned/pushed |
-| Deploy (HF / Vercel / Render) | ❌ no Dockerfile / render.yaml / compose |
-| GitHub Actions CI | ❌ none |
-| ruff / mypy / pytest config | ❌ `pyproject.toml` has deps only, no `[tool.*]` |
-| Tests | ❌ zero test files (pytest configured in VS Code, but `tests/` doesn't exist) |
-| pre-commit + secret scanning | ❌ none |
-| `.env.example` | ❌ missing; live `.env` holds **real API keys in plaintext** |
-| docs/ + SECURITY.md | ❌ missing |
-| Alembic migrations | ❌ raw `create_metadata_tables()` |
-| Real frontend | ⚠️ only a static dev `chat.html/js` (no Next.js app) |
-| Naming | ⚠️ pyproject `name = "mysql-agent"`; old folder was `SQL_SERVER_AGENT` |
+| Blueprint piece | dbwhisper in 2026-06 | Today (verified 2026-08-24) |
+|---|---|---|
+| Git + GitHub repo | ❌ no `.git` at all — never versioned/pushed | shipped — branch `feat/dbwhisper-v2`, GitHub remote |
+| Deploy (HF / Vercel / Render) | ❌ no Dockerfile / render.yaml / compose | shipped — `Dockerfile`, `Dockerfile.worker`, `compose.yaml` (four profiles), `render.yaml` |
+| GitHub Actions CI | ❌ none | shipped — `.github/workflows/ci.yml`, six jobs incl. a PostgreSQL service container |
+| ruff / mypy / pytest config | ❌ `pyproject.toml` has deps only, no `[tool.*]` | shipped — `[tool.ruff]`, `[tool.mypy]`, `[tool.pytest.ini_options]`; mypy is a CI gate on the clean packages and a ratchet elsewhere |
+| Tests | ❌ zero test files (pytest configured in VS Code, but `tests/` doesn't exist) | shipped — `tests/` plus `tests/{sqlpolicy,llm,retrieval,graph,evaluation}/`; CI coverage floor 65% |
+| pre-commit + secret scanning | ❌ none | shipped — `.pre-commit-config.yaml`; gitleaks over full history in CI |
+| `.env.example` | ❌ missing; live `.env` holds **real API keys in plaintext** | shipped — `.env.example` covers the settings and the direct-`getenv` variables; `.env` is git-ignored and gitleaks-scanned |
+| docs/ + SECURITY.md | ❌ missing | shipped — `SECURITY.md`, `docs/{ARCHITECTURE,LOCAL_SETUP,OPERATIONS,EVALUATION,BACKUP}.md` and the five audit documents in `docs/v2/` |
+| Alembic migrations | ❌ raw `create_metadata_tables()` | shipped — `db/migrations/` at revision `0004`, and `alembic.ini` now ships inside the image so migrations can actually run there. `create_metadata_tables` still exists as the startup entry point and falls back to `create_all` on failure |
+| Real frontend | ⚠️ only a static dev `chat.html/js` (no Next.js app) | shipped — Next.js App Router app under `web/`, unit and Playwright suites in CI |
+| Naming | ⚠️ pyproject `name = "mysql-agent"`; old folder was `SQL_SERVER_AGENT` | shipped — `name = "dbwhisper"` |
 
 ---
 

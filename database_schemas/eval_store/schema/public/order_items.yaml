@@ -1,0 +1,118 @@
+table_name: order_items
+schema: public
+object_type: table
+description: The order_items table serves as a junction between orders and products,
+  recording the quantity of each product included in an order. It supports inventory
+  management and order fulfillment processes by tracking ordered items at a granular
+  level.
+created_date: null
+modified_date: null
+columns:
+- name: id
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Unique identifier for each order item record
+  keywords:
+  - Order Item ID
+  - Unique Identifier
+  - Record ID
+- name: order_id
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Reference to the parent order containing this item
+  keywords:
+  - Order Reference
+  - Purchase ID
+  - Order Number
+- name: product_id
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Identifier for the specific product in the order
+  keywords:
+  - Product Reference
+  - Item Code
+  - SKU Number
+- name: quantity
+  type: integer
+  sql_type: integer
+  max_length: null
+  precision: null
+  scale: null
+  is_nullable: false
+  is_identity: false
+  identity_seed: null
+  identity_increment: null
+  is_computed: false
+  computed_definition: null
+  default_value: null
+  collation: null
+  description: Number of units ordered for the associated product
+  keywords:
+  - Quantity Ordered
+  - Item Count
+  - Purchase Amount
+primary_key:
+  constraint_name: order_items_pkey
+  columns:
+  - id
+  column_details:
+  - name: id
+    ordinal: 1
+    is_descending: false
+foreign_keys: []
+unique_constraints: []
+indexes: []
+check_constraints: []
+keywords:
+- Item Code
+- Item Count
+- Order Item ID
+- Order Number
+- Order Reference
+- Product Reference
+- Purchase Amount
+- Purchase ID
+- Quantity Ordered
+- Record ID
+relationships:
+  outgoing: []
+  incoming: []
+  many_to_many: []
+statistics:
+  total_columns: 4
+  nullable_columns: 0
+  computed_columns: 0
+  indexed_columns: 0

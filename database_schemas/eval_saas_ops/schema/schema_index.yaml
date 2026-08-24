@@ -1,0 +1,207 @@
+# GENERATED FILE - do not edit by hand.
+# Written by app/evaluation/datasets/build.py for the synthetic evaluation dataset
+# 'saas_ops' v1.0.0. Rebuild with:  uv run python -m app.evaluation.cli build
+# The database it describes contains fabricated data only.
+database_name: eval_saas_ops
+extraction_date: generated:saas_ops@1.0.0
+total_schemas: 1
+total_tables: 9
+total_views: 0
+generated_by: app.evaluation.datasets - synthetic evaluation fixture
+synthetic: true
+schemas:
+- name: main
+  table_count: 9
+  view_count: 0
+tables:
+- table: orgs
+  schema: main
+  object_type: table
+  keywords:
+  - organisation
+  - account
+  - customer
+  - tenant
+  - company
+  column_names:
+  - org_id
+  - org_name
+  - industry
+  - country
+  - created_on
+  primary_key:
+  - org_id
+  has_foreign_keys: false
+  short_description: Customer organisations. One row per account; every other table
+    hangs off org_id.
+- table: users
+  schema: main
+  object_type: table
+  keywords:
+  - user
+  - seat
+  - member
+  - role
+  - activity
+  column_names:
+  - user_id
+  - org_id
+  - user_code
+  - role
+  - created_on
+  - last_seen_on
+  primary_key:
+  - user_id
+  has_foreign_keys: true
+  short_description: Seats inside an organisation. Identity is an opaque user_code
+    - this schema holds no names or email addresses. last_seen_on is the last day
+    the user opened the app.
+- table: plans
+  schema: main
+  object_type: table
+  keywords:
+  - plan
+  - tier
+  - pricing
+  - package
+  - seat limit
+  column_names:
+  - plan_id
+  - plan_name
+  - monthly_price
+  - seat_limit
+  - tier
+  primary_key:
+  - plan_id
+  has_foreign_keys: false
+  short_description: The price book. monthly_price is list price per month; seat_limit
+    is the maximum number of users the plan allows.
+- table: subscriptions
+  schema: main
+  object_type: table
+  keywords:
+  - subscription
+  - mrr
+  - revenue
+  - seats
+  - contract
+  - active
+  column_names:
+  - subscription_id
+  - org_id
+  - plan_id
+  - started_on
+  - ended_on
+  - seats
+  - mrr
+  - status
+  primary_key:
+  - subscription_id
+  has_foreign_keys: true
+  short_description: What an org is paying for. A subscription is live when ended_on
+    is null; mrr is the negotiated monthly recurring revenue, which can differ from
+    the plan price.
+- table: events
+  schema: main
+  object_type: table
+  keywords:
+  - event
+  - usage
+  - activity
+  - engagement
+  - telemetry
+  column_names:
+  - event_id
+  - org_id
+  - user_id
+  - event_name
+  - event_date
+  - event_count
+  primary_key:
+  - event_id
+  has_foreign_keys: true
+  short_description: Daily product-usage roll-up. One row per org, user, event name
+    and day, with event_count actions that day - counting rows is not counting events.
+- table: churn_events
+  schema: main
+  object_type: table
+  keywords:
+  - churn
+  - cancellation
+  - lost
+  - attrition
+  - downgrade
+  column_names:
+  - churn_id
+  - org_id
+  - churn_date
+  - reason
+  - mrr_lost
+  primary_key:
+  - churn_id
+  has_foreign_keys: true
+  short_description: One row per organisation that cancelled, with the date, the stated
+    reason and the monthly recurring revenue lost. Logo churn is a row count; revenue
+    churn sums mrr_lost.
+- table: expansions
+  schema: main
+  object_type: table
+  keywords:
+  - expansion
+  - upsell
+  - growth
+  - upgrade
+  - net revenue retention
+  column_names:
+  - expansion_id
+  - org_id
+  - expansion_date
+  - seats_added
+  - mrr_added
+  primary_key:
+  - expansion_id
+  has_foreign_keys: true
+  short_description: 'Upsells: seats and monthly revenue added to an existing org
+    after it signed up.'
+- table: support_tickets
+  schema: main
+  object_type: table
+  keywords:
+  - support
+  - ticket
+  - csat
+  - priority
+  - incident
+  - helpdesk
+  column_names:
+  - ticket_id
+  - org_id
+  - opened_on
+  - closed_on
+  - priority
+  - category
+  - satisfaction
+  primary_key:
+  - ticket_id
+  has_foreign_keys: true
+  short_description: Support requests. closed_on is null while the ticket is open;
+    satisfaction is a 1-5 score recorded only when the customer answered the survey.
+- table: cohorts
+  schema: main
+  object_type: table
+  keywords:
+  - cohort
+  - acquisition
+  - channel
+  - vintage
+  - retention
+  column_names:
+  - cohort_id
+  - org_id
+  - cohort_month
+  - acquisition_channel
+  primary_key:
+  - cohort_id
+  has_foreign_keys: true
+  short_description: 'The acquisition cohort an org belongs to: the month it was acquired
+    and the channel that brought it in. One row per org.'

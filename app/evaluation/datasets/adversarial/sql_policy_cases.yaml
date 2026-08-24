@@ -1,0 +1,294 @@
+# DBWhisper adversarial + false-positive corpus for the SQL policy engine.
+#
+# dataset: sql_policy_cases   version: 2.0.0   created: 2026-08-21
+# Every case is executed by tests/sqlpolicy/test_adversarial_corpus.py against an in-memory schema
+# scope (below) for each listed dialect. Nothing here is ever sent to a real database: the policy
+# DECISION is what is under test. Expectations: deny | allow | needs_approval.
+#
+# Adding a case is the way to record a bypass or a false positive; never delete a case that once
+# caught a regression - mark it `skip_reason` instead.
+
+version: "2.0.0"
+scope:
+  tables:
+    customers: [id, name, city, email, signup_date, created, updated_at, grant_total, call_count]
+    orders: [id, customer_id, order_date, status, total, bulk_qty]
+    order_items: [id, order_id, product_id, quantity, unit_price]
+    products: [id, name, category, price, notes]
+    patients: [id, name, ssn, dob, facility_id]
+  sensitive: [patients.ssn, patients.dob]
+  default_schema: { postgres: demo, mysql: null, tsql: dbo, sqlite: main }
+
+cases:
+  # ------------------------------------------------------------------ A. direct writes / DDL / admin
+  - { id: w-001, dialects: [postgres, mysql, tsql, sqlite], category: write, expect: deny, sql: "INSERT INTO customers (id, name) VALUES (1, 'x')" }
+  - { id: w-002, dialects: [postgres, mysql, tsql, sqlite], category: write, expect: deny, sql: "UPDATE customers SET name = 'x' WHERE id = 1" }
+  - { id: w-003, dialects: [postgres, mysql, tsql, sqlite], category: write, expect: deny, sql: "DELETE FROM customers WHERE id = 1" }
+  - { id: w-004, dialects: [postgres, tsql], category: write, expect: deny, sql: "MERGE INTO customers c USING orders o ON c.id = o.customer_id WHEN MATCHED THEN UPDATE SET name = 'x'" }
+  - { id: w-005, dialects: [postgres, mysql, tsql], category: ddl, expect: deny, sql: "TRUNCATE TABLE customers" }
+  - { id: w-006, dialects: [postgres, mysql, tsql, sqlite], category: ddl, expect: deny, sql: "DROP TABLE customers" }
+  - { id: w-007, dialects: [postgres, mysql, tsql, sqlite], category: ddl, expect: deny, sql: "ALTER TABLE customers ADD COLUMN x INT" }
+  - { id: w-008, dialects: [postgres, mysql, tsql, sqlite], category: ddl, expect: deny, sql: "CREATE TABLE t (id INT)" }
+  - { id: w-009, dialects: [postgres, mysql, sqlite], category: ddl, expect: deny, sql: "CREATE TABLE t AS SELECT * FROM customers" }
+  - { id: w-010, dialects: [postgres, mysql, tsql], category: admin, expect: deny, sql: "GRANT SELECT ON customers TO bob" }
+  - { id: w-011, dialects: [postgres, mysql, tsql], category: admin, expect: deny, sql: "REVOKE SELECT ON customers FROM bob" }
+  - { id: w-012, dialects: [mysql], category: write, expect: deny, sql: "REPLACE INTO customers (id, name) VALUES (1, 'x')" }
+  - { id: w-013, dialects: [sqlite], category: write, expect: deny, sql: "INSERT OR REPLACE INTO customers (id, name) VALUES (1, 'x')" }
+  - { id: w-014, dialects: [postgres], category: write, expect: deny, sql: "COPY customers TO '/tmp/out.csv'" }
+  - { id: w-015, dialects: [postgres], category: write, expect: deny, sql: "COPY customers FROM '/tmp/in.csv'" }
+  - { id: w-016, dialects: [mysql], category: write, expect: deny, sql: "LOAD DATA INFILE '/etc/passwd' INTO TABLE customers" }
+  - { id: w-017, dialects: [tsql], category: write, expect: deny, sql: "BULK INSERT customers FROM 'c:\\data\\x.csv'" }
+  - { id: w-018, dialects: [tsql, postgres], category: write, expect: deny, sql: "SELECT * INTO new_table FROM customers" }
+  - { id: w-019, dialects: [mysql], category: write, expect: deny, sql: "SELECT * FROM customers INTO OUTFILE '/tmp/x.csv'" }
+  - { id: w-020, dialects: [mysql], category: write, expect: deny, sql: "SELECT name FROM customers INTO DUMPFILE '/tmp/x'" }
+  - { id: w-021, dialects: [postgres, mysql], category: exec, expect: deny, sql: "CALL do_thing()" }
+  - { id: w-022, dialects: [tsql], category: exec, expect: deny, sql: "EXEC sp_who" }
+  - { id: w-023, dialects: [tsql], category: exec, expect: deny, sql: "EXECUTE sp_executesql N'SELECT 1'" }
+  - { id: w-024, dialects: [tsql], category: exec, expect: deny, sql: "EXEC xp_cmdshell 'dir'" }
+  - { id: w-025, dialects: [postgres, mysql, tsql, sqlite], category: txn, expect: deny, sql: "BEGIN" }
+  - { id: w-026, dialects: [postgres, mysql, tsql, sqlite], category: txn, expect: deny, sql: "COMMIT" }
+  - { id: w-027, dialects: [postgres, mysql, tsql, sqlite], category: txn, expect: deny, sql: "ROLLBACK" }
+  - { id: w-028, dialects: [postgres], category: session, expect: deny, sql: "SET ROLE admin" }
+  - { id: w-029, dialects: [postgres], category: session, expect: deny, sql: "SET search_path TO pg_catalog" }
+  - { id: w-030, dialects: [postgres], category: session, expect: deny, sql: "SET SESSION AUTHORIZATION postgres" }
+  - { id: w-031, dialects: [mysql, tsql], category: session, expect: deny, sql: "USE mysql" }
+  - { id: w-032, dialects: [mysql], category: admin, expect: deny, sql: "SHOW TABLES" }
+  - { id: w-033, dialects: [mysql], category: admin, expect: deny, sql: "DESCRIBE customers" }
+  - { id: w-034, dialects: [postgres, mysql], category: admin, expect: deny, sql: "EXPLAIN SELECT * FROM customers" }
+  - { id: w-035, dialects: [postgres], category: admin, expect: deny, sql: "EXPLAIN ANALYZE SELECT * FROM customers" }
+  - { id: w-036, dialects: [sqlite], category: admin, expect: deny, sql: "PRAGMA table_info(customers)" }
+  - { id: w-037, dialects: [sqlite], category: admin, expect: deny, sql: "ATTACH DATABASE '/etc/passwd' AS x" }
+  - { id: w-038, dialects: [postgres, sqlite], category: admin, expect: deny, sql: "VACUUM" }
+  - { id: w-039, dialects: [postgres, sqlite], category: admin, expect: deny, sql: "ANALYZE customers" }
+  - { id: w-040, dialects: [postgres, mysql], category: lock, expect: deny, sql: "LOCK TABLE customers IN ACCESS EXCLUSIVE MODE" }
+  - { id: w-041, dialects: [tsql], category: exec, expect: deny, sql: "DECLARE @x INT; SELECT @x" }
+  - { id: w-042, dialects: [tsql], category: dos, expect: deny, sql: "WAITFOR DELAY '00:00:10'" }
+  - { id: w-043, dialects: [mysql], category: admin, expect: deny, sql: "KILL 42" }
+  - { id: w-044, dialects: [postgres], category: exec, expect: deny, sql: "DO $$ BEGIN PERFORM pg_sleep(1); END $$" }
+  - { id: w-045, dialects: [postgres], category: ddl, expect: deny, sql: "CREATE FUNCTION f() RETURNS int AS 'select 1' LANGUAGE sql" }
+  - { id: w-046, dialects: [postgres], category: admin, expect: deny, sql: "ALTER SYSTEM SET work_mem = '1GB'" }
+  - { id: w-047, dialects: [postgres], category: write, expect: deny, sql: "REFRESH MATERIALIZED VIEW mv" }
+  - { id: w-048, dialects: [postgres], category: admin, expect: deny, sql: "COMMENT ON TABLE customers IS 'x'" }
+  - { id: w-049, dialects: [postgres], category: admin, expect: deny, sql: "LISTEN chan" }
+  - { id: w-050, dialects: [postgres], category: admin, expect: deny, sql: "NOTIFY chan, 'payload'" }
+  - { id: w-051, dialects: [postgres], category: admin, expect: deny, sql: "DISCARD ALL" }
+  - { id: w-052, dialects: [tsql], category: exec, expect: deny, sql: "EXEC('DROP TABLE customers')" }
+  - { id: w-053, dialects: [postgres, mysql, tsql, sqlite], category: ddl, expect: deny, sql: "CREATE INDEX ix ON customers (name)" }
+  - { id: w-054, dialects: [postgres, mysql, tsql, sqlite], category: ddl, expect: deny, sql: "CREATE VIEW v AS SELECT id FROM customers" }
+  - { id: w-055, dialects: [postgres, mysql, tsql], category: ddl, expect: deny, sql: "DROP DATABASE prod" }
+
+  # ------------------------------------------------------------------ B. writes hidden inside read syntax
+  - { id: h-001, dialects: [postgres, sqlite], category: write_cte, expect: deny, sql: "WITH x AS (DELETE FROM customers RETURNING *) SELECT * FROM x" }
+  - { id: h-002, dialects: [postgres], category: write_cte, expect: deny, sql: "WITH x AS (INSERT INTO customers (id, name) VALUES (9, 'z') RETURNING id) SELECT id FROM x" }
+  - { id: h-003, dialects: [postgres], category: write_cte, expect: deny, sql: "WITH x AS (UPDATE customers SET name = 'z' RETURNING id) SELECT id FROM x" }
+  - { id: h-004, dialects: [postgres], category: write_cte, expect: deny, sql: "SELECT * FROM (WITH y AS (DELETE FROM customers RETURNING id) SELECT * FROM y) z" }
+  - { id: h-005, dialects: [postgres], category: write_cte, expect: deny, sql: "WITH a AS (SELECT id FROM customers), b AS (DELETE FROM orders RETURNING id) SELECT a.id FROM a JOIN b ON a.id = b.id" }
+  - { id: h-006, dialects: [postgres, mysql], category: lock, expect: deny, sql: "SELECT id FROM customers FOR UPDATE" }
+  - { id: h-007, dialects: [postgres], category: lock, expect: deny, sql: "SELECT id FROM customers FOR SHARE" }
+  - { id: h-008, dialects: [postgres], category: lock, expect: deny, sql: "SELECT id FROM customers FOR NO KEY UPDATE" }
+  - { id: h-009, dialects: [mysql], category: lock, expect: deny, sql: "SELECT id FROM customers LOCK IN SHARE MODE" }
+  - { id: h-010, dialects: [postgres], category: side_effect, expect: deny, sql: "SELECT nextval('customers_id_seq')" }
+  - { id: h-011, dialects: [postgres], category: side_effect, expect: deny, sql: "SELECT setval('customers_id_seq', 1)" }
+  - { id: h-012, dialects: [postgres], category: side_effect, expect: deny, sql: "SELECT pg_notify('chan', 'x')" }
+  - { id: h-013, dialects: [postgres], category: network, expect: deny, sql: "SELECT * FROM dblink('host=evil dbname=x', 'select 1') AS t(a int)" }
+  - { id: h-014, dialects: [postgres], category: network, expect: deny, sql: "SELECT dblink_exec('host=evil', 'DROP TABLE x')" }
+  - { id: h-015, dialects: [postgres], category: side_effect, expect: deny, sql: "SELECT pg_terminate_backend(123)" }
+  - { id: h-016, dialects: [postgres], category: side_effect, expect: deny, sql: "SELECT pg_cancel_backend(123)" }
+  - { id: h-017, dialects: [postgres], category: side_effect, expect: deny, sql: "SELECT set_config('search_path', 'pg_catalog', false)" }
+  - { id: h-018, dialects: [postgres], category: write_cte, expect: deny, sql: "SELECT name FROM customers WHERE id IN (WITH d AS (DELETE FROM orders RETURNING customer_id) SELECT customer_id FROM d)" }
+  - { id: h-019, dialects: [tsql], category: exec, expect: deny, sql: "SELECT * FROM customers; EXEC xp_cmdshell 'whoami'" }
+  - { id: h-020, dialects: [postgres], category: write_cte, expect: deny, sql: "WITH RECURSIVE x AS (DELETE FROM customers RETURNING id) SELECT * FROM x" }
+
+  # ------------------------------------------------------------------ C. multiple statements & obfuscation
+  - { id: m-001, dialects: [postgres, mysql, tsql, sqlite], category: multi, expect: deny, sql: "SELECT 1; DROP TABLE customers" }
+  - { id: m-002, dialects: [postgres, mysql, tsql, sqlite], category: multi, expect: deny, sql: "SELECT id FROM customers;; DROP TABLE customers" }
+  - { id: m-003, dialects: [postgres, mysql, tsql, sqlite], category: multi, expect: deny, sql: "SELECT id FROM customers /* c */ ; DROP TABLE customers" }
+  - { id: m-004, dialects: [postgres, mysql, tsql, sqlite], category: multi, expect: deny, sql: "SELECT ';' AS s FROM customers ; DROP TABLE customers" }
+  - { id: m-005, dialects: [postgres, mysql, tsql, sqlite], category: multi, expect: deny, sql: "SELECT id FROM customers\n;\nDELETE FROM customers" }
+  - { id: m-006, dialects: [postgres, mysql, tsql, sqlite], category: obfuscation, expect: deny, sql: "DE/**/LETE FROM customers" }
+  - { id: m-007, dialects: [postgres, mysql, tsql, sqlite], category: obfuscation, expect: deny, sql: "SELECT\u00a0id FROM customers" }
+  - { id: m-008, dialects: [postgres, mysql, tsql, sqlite], category: obfuscation, expect: deny, sql: "SELECT id\u200bFROM customers" }
+  - { id: m-009, dialects: [postgres, mysql, tsql, sqlite], category: obfuscation, expect: deny, sql: "SELECT id\u2028FROM customers" }
+  - { id: m-010, dialects: [postgres, mysql, tsql, sqlite], category: obfuscation, expect: deny, sql: "SELECT\u000bid FROM customers" }
+  - { id: m-011, dialects: [postgres, mysql, tsql, sqlite], category: obfuscation, expect: deny, sql: "\uff33\uff25\uff2c\uff25\uff23\uff34 id FROM customers" }
+  - { id: m-012, dialects: [postgres, mysql, tsql, sqlite], category: obfuscation, expect: deny, sql: "SELECT id FROM \u0441ustomers" }
+  - { id: m-013, dialects: [postgres, mysql, sqlite], category: obfuscation, expect: deny, sql: "SELECT id FROM customers WHERE 1=1; -- \nDROP TABLE customers" }
+  - { id: m-014, dialects: [postgres, mysql, tsql, sqlite], category: multi, expect: deny, sql: "SELECT id FROM customers UNION SELECT 1; DELETE FROM orders" }
+  - { id: m-015, dialects: [postgres, mysql, tsql, sqlite], category: obfuscation, expect: deny, sql: "SEL\u00adECT id FROM customers" }
+
+  # ------------------------------------------------------------------ D. system catalogs & cross-database
+  - { id: c-001, dialects: [postgres, mysql, tsql], category: catalog, expect: deny, sql: "SELECT * FROM information_schema.tables" }
+  - { id: c-002, dialects: [postgres], category: catalog, expect: deny, sql: "SELECT * FROM pg_catalog.pg_tables" }
+  - { id: c-003, dialects: [postgres], category: catalog, expect: deny, sql: "SELECT * FROM pg_tables" }
+  - { id: c-004, dialects: [postgres], category: catalog, expect: deny, sql: "SELECT * FROM \"pg_catalog\".\"pg_tables\"" }
+  - { id: c-005, dialects: [postgres], category: catalog, expect: deny, sql: "SELECT * FROM PG_CATALOG.PG_TABLES" }
+  - { id: c-006, dialects: [postgres], category: catalog, expect: deny, sql: "SELECT rolname, rolpassword FROM pg_authid" }
+  - { id: c-007, dialects: [postgres], category: catalog, expect: deny, sql: "SELECT usename, passwd FROM pg_shadow" }
+  - { id: c-008, dialects: [postgres], category: catalog, expect: deny, sql: "SELECT name, setting FROM pg_settings" }
+  - { id: c-009, dialects: [postgres], category: catalog, expect: deny, sql: "SELECT query FROM pg_stat_activity" }
+  - { id: c-010, dialects: [tsql], category: catalog, expect: deny, sql: "SELECT name FROM sys.objects" }
+  - { id: c-011, dialects: [tsql], category: catalog, expect: deny, sql: "SELECT name FROM [sys].[tables]" }
+  - { id: c-012, dialects: [tsql], category: catalog, expect: deny, sql: "SELECT name FROM master.dbo.sysdatabases" }
+  - { id: c-013, dialects: [tsql], category: catalog, expect: deny, sql: "SELECT name FROM master..sysdatabases" }
+  - { id: c-014, dialects: [tsql], category: catalog, expect: deny, sql: "SELECT name FROM sysobjects" }
+  - { id: c-015, dialects: [mysql], category: catalog, expect: deny, sql: "SELECT user, authentication_string FROM mysql.user" }
+  - { id: c-016, dialects: [mysql], category: catalog, expect: deny, sql: "SELECT * FROM performance_schema.threads" }
+  - { id: c-017, dialects: [sqlite], category: catalog, expect: deny, sql: "SELECT sql FROM sqlite_master" }
+  - { id: c-018, dialects: [sqlite], category: catalog, expect: deny, sql: "SELECT sql FROM sqlite_schema" }
+  - { id: c-019, dialects: [postgres, mysql, tsql], category: catalog, expect: deny, sql: "SELECT t.table_name FROM information_schema.tables AS t" }
+  - { id: c-020, dialects: [postgres], category: catalog, expect: deny, sql: "SELECT c.name FROM customers c JOIN pg_roles r ON r.oid = c.id" }
+  - { id: c-021, dialects: [postgres], category: catalog, expect: deny, sql: "SELECT (SELECT count(*) FROM pg_class) AS n" }
+  - { id: c-022, dialects: [postgres], category: catalog, expect: deny, sql: "SELECT name FROM customers WHERE EXISTS (SELECT 1 FROM pg_shadow)" }
+  - { id: c-023, dialects: [tsql], category: cross_db, expect: deny, sql: "SELECT * FROM otherdb.dbo.customers" }
+  - { id: c-024, dialects: [postgres], category: cross_db, expect: deny, sql: "SELECT * FROM otherdb.demo.customers" }
+  - { id: c-025, dialects: [tsql], category: catalog, expect: deny, sql: "SELECT * FROM tempdb..sysobjects" }
+  - { id: c-026, dialects: [postgres], category: catalog, expect: deny, sql: "SELECT name FROM customers UNION ALL SELECT rolname FROM pg_roles" }
+  - { id: c-027, dialects: [postgres], category: catalog, expect: deny, sql: "SELECT * FROM pg_stat_statements" }
+  - { id: c-028, dialects: [postgres], category: catalog, expect: deny, sql: "SELECT * FROM pg_hba_file_rules" }
+
+  # ------------------------------------------------------------------ E. dangerous functions
+  - { id: f-001, dialects: [postgres], category: dos, expect: deny, sql: "SELECT pg_sleep(10)" }
+  - { id: f-002, dialects: [postgres], category: dos, expect: deny, sql: "SELECT name FROM customers WHERE pg_sleep(1) IS NULL" }
+  - { id: f-003, dialects: [postgres], category: dos, expect: deny, sql: "SELECT pg_sleep_for('10 seconds')" }
+  - { id: f-004, dialects: [postgres], category: file, expect: deny, sql: "SELECT pg_read_file('/etc/passwd')" }
+  - { id: f-005, dialects: [postgres], category: file, expect: deny, sql: "SELECT pg_read_binary_file('/etc/passwd')" }
+  - { id: f-006, dialects: [postgres], category: file, expect: deny, sql: "SELECT pg_ls_dir('/')" }
+  - { id: f-007, dialects: [postgres], category: file, expect: deny, sql: "SELECT lo_import('/etc/passwd')" }
+  - { id: f-008, dialects: [postgres], category: file, expect: deny, sql: "SELECT lo_export(1234, '/tmp/x')" }
+  - { id: f-009, dialects: [postgres], category: config, expect: deny, sql: "SELECT current_setting('data_directory')" }
+  - { id: f-010, dialects: [postgres], category: dos, expect: deny, sql: "SELECT pg_advisory_lock(1)" }
+  - { id: f-011, dialects: [mysql], category: dos, expect: deny, sql: "SELECT SLEEP(10)" }
+  - { id: f-012, dialects: [mysql], category: dos, expect: deny, sql: "SELECT name FROM customers WHERE id = 1 AND SLEEP(5)" }
+  - { id: f-013, dialects: [mysql], category: dos, expect: deny, sql: "SELECT BENCHMARK(100000000, MD5('x'))" }
+  - { id: f-014, dialects: [mysql], category: file, expect: deny, sql: "SELECT LOAD_FILE('/etc/passwd')" }
+  - { id: f-015, dialects: [mysql], category: dos, expect: deny, sql: "SELECT GET_LOCK('x', 100)" }
+  - { id: f-016, dialects: [mysql], category: dos, expect: deny, sql: "SELECT RELEASE_LOCK('x')" }
+  - { id: f-017, dialects: [mysql], category: dos, expect: deny, sql: "SELECT MASTER_POS_WAIT('bin', 1, 100)" }
+  - { id: f-018, dialects: [mysql], category: exec, expect: deny, sql: "SELECT sys_exec('id')" }
+  - { id: f-019, dialects: [tsql], category: network, expect: deny, sql: "SELECT * FROM OPENROWSET('SQLNCLI', 'Server=evil;', 'SELECT 1')" }
+  - { id: f-020, dialects: [tsql], category: network, expect: deny, sql: "SELECT * FROM OPENQUERY(linked, 'SELECT 1')" }
+  - { id: f-021, dialects: [tsql], category: network, expect: deny, sql: "SELECT * FROM OPENDATASOURCE('SQLNCLI', 'Data Source=evil').db.dbo.t" }
+  - { id: f-022, dialects: [tsql], category: config, expect: deny, sql: "SELECT SERVERPROPERTY('MachineName')" }
+  - { id: f-023, dialects: [tsql], category: config, expect: deny, sql: "SELECT @@version" }
+  - { id: f-024, dialects: [tsql], category: config, expect: deny, sql: "SELECT @@servername" }
+  - { id: f-025, dialects: [mysql], category: config, expect: deny, sql: "SELECT @@global.read_only" }
+  - { id: f-026, dialects: [mysql], category: config, expect: deny, sql: "SELECT @@version" }
+  - { id: f-027, dialects: [sqlite], category: exec, expect: deny, sql: "SELECT load_extension('/tmp/evil.so')" }
+  - { id: f-028, dialects: [sqlite], category: file, expect: deny, sql: "SELECT readfile('/etc/passwd')" }
+  - { id: f-029, dialects: [sqlite], category: file, expect: deny, sql: "SELECT writefile('/tmp/x', 'y')" }
+  - { id: f-030, dialects: [tsql], category: fp, expect: allow, sql: "SELECT SUSER_SNAME()" }  # login name is not configuration; allowed
+  - { id: f-031, dialects: [postgres], category: dos, expect: deny, sql: "SELECT count(*) FROM customers c WHERE (SELECT pg_sleep(2)) IS NULL" }
+  - { id: f-032, dialects: [tsql], category: exec, expect: deny, sql: "SELECT * FROM customers WHERE id = (SELECT 1 FROM OPENROWSET(BULK 'c:\\x', SINGLE_CLOB) AS t)" }
+  - { id: f-033, dialects: [postgres], category: file, expect: deny, sql: "SELECT * FROM pg_ls_logdir()" }
+
+  # ------------------------------------------------------------------ F. resource exhaustion / complexity
+  - { id: r-001, dialects: [postgres, mysql, sqlite], category: recursive, expect: deny, sql: "WITH RECURSIVE r(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM r) SELECT count(*) FROM r" }
+  - { id: r-002, dialects: [postgres, mysql, sqlite], category: recursive, expect: allow, level: advanced, sql: "WITH RECURSIVE r(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM r WHERE n < 10) SELECT count(*) FROM r" }
+  - { id: r-003, dialects: [postgres, mysql, tsql, sqlite], category: cartesian, expect: deny, sql: "SELECT c.id FROM customers c, orders o" }
+  - { id: r-004, dialects: [postgres, mysql, tsql, sqlite], category: cartesian, expect: deny, sql: "SELECT c.id FROM customers c CROSS JOIN orders o" }
+  - { id: r-005, dialects: [postgres, mysql, tsql, sqlite], category: cartesian, expect: deny, sql: "SELECT c.id FROM customers c JOIN orders o ON 1 = 1" }
+  - { id: r-006, dialects: [postgres, mysql, sqlite], category: cartesian, expect: deny, sql: "SELECT c.id FROM customers c JOIN orders o ON TRUE" }
+  - { id: r-007, dialects: [postgres, mysql, sqlite], category: limit, expect: allow, transformed_contains: "LIMIT 1000", sql: "SELECT id FROM customers LIMIT 100000000" }
+  - { id: r-008, dialects: [postgres, mysql, tsql, sqlite], category: union, expect: deny, sql: "SELECT id FROM customers UNION SELECT id FROM orders UNION SELECT id FROM products UNION SELECT id FROM order_items UNION SELECT id FROM patients UNION SELECT id FROM customers" }
+  - { id: r-009, dialects: [postgres, mysql, tsql, sqlite], category: nesting, expect: deny, sql: "SELECT id FROM customers WHERE id IN (SELECT id FROM customers WHERE id IN (SELECT id FROM customers WHERE id IN (SELECT id FROM customers WHERE id IN (SELECT id FROM customers WHERE id IN (SELECT id FROM customers WHERE id IN (SELECT id FROM customers))))))" }
+  - { id: r-010, dialects: [postgres, mysql, tsql, sqlite], category: joins, expect: deny, sql: "SELECT c.id FROM customers c JOIN orders o1 ON o1.customer_id = c.id JOIN orders o2 ON o2.customer_id = c.id JOIN orders o3 ON o3.customer_id = c.id JOIN orders o4 ON o4.customer_id = c.id JOIN orders o5 ON o5.customer_id = c.id JOIN orders o6 ON o6.customer_id = c.id JOIN orders o7 ON o7.customer_id = c.id JOIN orders o8 ON o8.customer_id = c.id JOIN orders o9 ON o9.customer_id = c.id" }
+  - { id: r-011, dialects: [postgres, mysql, sqlite], category: window, expect: deny, level: strict, sql: "SELECT name, row_number() OVER (ORDER BY id) AS rn FROM customers" }
+  - { id: r-012, dialects: [postgres, mysql, tsql, sqlite], category: cte_count, expect: deny, sql: "WITH a AS (SELECT id FROM customers), b AS (SELECT id FROM a), c AS (SELECT id FROM b), d AS (SELECT id FROM c), e AS (SELECT id FROM d), f AS (SELECT id FROM e), g AS (SELECT id FROM f) SELECT id FROM g" }
+
+  # ------------------------------------------------------------------ G. allowlist (tables / columns / schemas)
+  - { id: a-001, dialects: [postgres, mysql, tsql, sqlite], category: unknown_table, expect: deny, reason_contains: secret_table, sql: "SELECT * FROM secret_table" }
+  - { id: a-002, dialects: [postgres, mysql, tsql, sqlite], category: unknown_column, expect: deny, sql: "SELECT nope FROM customers" }
+  - { id: a-003, dialects: [postgres, mysql, tsql, sqlite], category: unknown_column, expect: deny, sql: "SELECT c.nope FROM customers AS c" }
+  - { id: a-004, dialects: [postgres, mysql, tsql, sqlite], category: unknown_table, expect: deny, sql: "SELECT name FROM customers WHERE id IN (SELECT customer_id FROM hidden_orders)" }
+  - { id: a-005, dialects: [postgres, mysql, tsql, sqlite], category: unknown_table, expect: deny, sql: "SELECT name FROM customers WHERE EXISTS (SELECT 1 FROM audit_log)" }
+  - { id: a-006, dialects: [postgres, mysql, tsql, sqlite], category: unknown_table, expect: deny, sql: "SELECT c.name FROM customers c, secrets s" }
+  - { id: a-007, dialects: [postgres, mysql, tsql, sqlite], category: unknown_table, expect: deny, sql: "SELECT name FROM customers UNION ALL SELECT name FROM employees" }
+  - { id: a-008, dialects: [postgres, mysql, tsql, sqlite], category: unknown_table, expect: deny, sql: "SELECT x.name FROM (SELECT name FROM employees) AS x" }
+  - { id: a-009, dialects: [postgres], category: unknown_table, expect: deny, sql: "SELECT c.name FROM customers c CROSS JOIN LATERAL (SELECT 1 FROM salaries s WHERE s.id = c.id) l" }
+  - { id: a-010, dialects: [postgres], category: wrong_schema, expect: deny, sql: "SELECT name FROM public.customers" }
+  - { id: a-011, dialects: [postgres], category: schema_ok, expect: allow, sql: "SELECT name FROM demo.customers" }
+  - { id: a-012, dialects: [postgres], category: schema_ok, expect: allow, sql: "SELECT NAME FROM DEMO.CUSTOMERS" }
+  - { id: a-013, dialects: [postgres], category: schema_ok, expect: allow, sql: "SELECT \"name\" FROM \"demo\".\"customers\"" }
+  - { id: a-014, dialects: [tsql], category: schema_ok, expect: allow, sql: "SELECT [name] FROM [dbo].[customers]" }
+  - { id: a-015, dialects: [mysql], category: schema_ok, expect: allow, sql: "SELECT `name` FROM `customers`" }
+  - { id: a-016, dialects: [postgres, mysql, tsql, sqlite], category: cte_name, expect: allow, sql: "WITH recent AS (SELECT id, customer_id FROM orders) SELECT r.customer_id FROM recent r" }
+  - { id: a-017, dialects: [postgres, mysql, tsql, sqlite], category: cte_shadow, expect: allow, sql: "WITH customers AS (SELECT id FROM orders) SELECT id FROM customers" }
+  - { id: a-018, dialects: [postgres, mysql, tsql, sqlite], category: unknown_column, expect: deny, sql: "WITH t AS (SELECT id FROM customers) SELECT name FROM t" }
+  - { id: a-019, dialects: [postgres, mysql, tsql, sqlite], category: ambiguous, expect: deny, sql: "SELECT id FROM customers c JOIN orders o ON o.customer_id = c.id" }
+  - { id: a-020, dialects: [postgres, mysql, tsql, sqlite], category: star_ok, expect: allow, sql: "SELECT * FROM customers c JOIN orders o ON o.customer_id = c.id" }
+  - { id: a-021, dialects: [postgres, mysql, sqlite], category: using_ok, expect: allow, sql: "SELECT c.name FROM customers c JOIN orders o USING (id)" }
+  - { id: a-022, dialects: [tsql], category: wrong_schema, expect: deny, sql: "SELECT name FROM sales.customers" }
+  - { id: a-023, dialects: [postgres, mysql, tsql, sqlite], category: unknown_column, expect: deny, sql: "SELECT name FROM customers ORDER BY ghost" }
+  - { id: a-024, dialects: [postgres, mysql, tsql, sqlite], category: unknown_column, expect: deny, sql: "SELECT count(*) FROM orders GROUP BY region" }
+  - { id: a-025, dialects: [postgres, mysql, tsql, sqlite], category: unknown_table, expect: deny, sql: "SELECT o.id FROM orders o LEFT JOIN refunds r ON r.order_id = o.id" }
+
+  # ------------------------------------------------------------------ H. sensitive columns
+  - { id: s-001, dialects: [postgres, mysql, tsql, sqlite], category: sensitive, expect: needs_approval, sql: "SELECT ssn FROM patients" }
+  - { id: s-002, dialects: [postgres, mysql, tsql, sqlite], category: sensitive, expect: needs_approval, sql: "SELECT * FROM patients" }
+  - { id: s-003, dialects: [postgres, mysql, tsql, sqlite], category: sensitive, expect: needs_approval, sql: "SELECT p.* FROM patients p" }
+  - { id: s-004, dialects: [postgres, mysql, tsql, sqlite], category: sensitive, expect: allow, sql: "SELECT name, facility_id FROM patients" }
+  - { id: s-005, dialects: [postgres, mysql, tsql, sqlite], category: sensitive, expect: needs_approval, sql: "SELECT name FROM patients WHERE dob < '1950-01-01'" }
+  - { id: s-006, dialects: [postgres, mysql, tsql, sqlite], category: sensitive, expect: needs_approval, sql: "WITH p AS (SELECT ssn AS s FROM patients) SELECT s FROM p" }
+  - { id: s-007, dialects: [postgres, mysql, tsql, sqlite], category: sensitive, expect: needs_approval, sql: "SELECT count(*) FROM patients GROUP BY ssn" }
+
+  # ------------------------------------------------------------------ I. safe queries that MUST be allowed (false-positive guards)
+  - { id: ok-001, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT REPLACE(name, 'a', 'b') AS n FROM customers" }
+  - { id: ok-002, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT id FROM customers WHERE city = 'update'" }
+  - { id: ok-003, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT created, updated_at, grant_total, call_count FROM customers" }
+  - { id: ok-004, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT bulk_qty FROM orders" }
+  - { id: ok-005, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT id FROM customers WHERE name = 'a; DROP TABLE customers'" }
+  - { id: ok-006, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT id FROM customers WHERE name = 'a -- b'" }
+  - { id: ok-007, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT id FROM products WHERE notes LIKE '%insert%'" }
+  - { id: ok-008, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT id FROM customers WHERE name = 'what?'" }
+  - { id: ok-009, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT id FROM customers WHERE email = 'a@b.com'" }
+  - { id: ok-010, dialects: [postgres], category: fp, expect: allow, sql: "SELECT price::int FROM products" }
+  - { id: ok-011, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT CAST(price AS INT) FROM products" }
+  - { id: ok-012, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT COALESCE(city, 'n/a') AS city FROM customers" }
+  - { id: ok-013, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT CASE WHEN price > 100 THEN 'high' ELSE 'low' END AS band FROM products" }
+  - { id: ok-014, dialects: [postgres], category: fp, expect: allow, sql: "SELECT date_trunc('month', order_date) AS m, count(*) FROM orders GROUP BY 1 ORDER BY 1" }
+  - { id: ok-015, dialects: [postgres, mysql], category: fp, expect: allow, sql: "SELECT EXTRACT(YEAR FROM order_date) AS y FROM orders" }
+  - { id: ok-016, dialects: [postgres], category: fp, expect: allow, sql: "SELECT id FROM orders WHERE order_date > CURRENT_DATE - INTERVAL '1 month'" }
+  - { id: ok-017, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT name, row_number() OVER (ORDER BY id) AS rn FROM customers" }
+  - { id: ok-018, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT status, count(*) AS n FROM orders GROUP BY status HAVING count(*) > 1 ORDER BY n DESC" }
+  - { id: ok-019, dialects: [postgres], category: fp, expect: allow, sql: "SELECT DISTINCT ON (customer_id) customer_id, order_date FROM orders ORDER BY customer_id, order_date DESC" }
+  - { id: ok-020, dialects: [postgres, mysql, sqlite], category: fp, expect: allow, sql: "SELECT id FROM customers ORDER BY id LIMIT 10 OFFSET 5" }
+  - { id: ok-021, dialects: [postgres], category: fp, expect: allow, sql: "SELECT id FROM customers ORDER BY id FETCH FIRST 10 ROWS ONLY" }
+  - { id: ok-022, dialects: [tsql], category: fp, expect: allow, sql: "SELECT TOP 10 name FROM customers ORDER BY id" }
+  - { id: ok-023, dialects: [tsql], category: fp, expect: allow, sql: "SELECT name FROM customers ORDER BY id OFFSET 10 ROWS FETCH NEXT 10 ROWS ONLY" }
+  - { id: ok-024, dialects: [mysql], category: fp, expect: allow, sql: "SELECT id FROM customers ORDER BY id LIMIT 5, 10" }
+  - { id: ok-025, dialects: [sqlite], category: fp, expect: allow, sql: "SELECT strftime('%Y-%m', order_date) AS ym, count(*) FROM orders GROUP BY ym" }
+  - { id: ok-026, dialects: [mysql], category: fp, expect: allow, sql: "SELECT GROUP_CONCAT(name) FROM customers" }
+  - { id: ok-027, dialects: [postgres], category: fp, expect: allow, sql: "SELECT STRING_AGG(name, ', ') FROM customers" }
+  - { id: ok-028, dialects: [tsql], category: fp, expect: allow, sql: "SELECT DATEDIFF(day, order_date, GETDATE()) AS age FROM orders" }
+  - { id: ok-029, dialects: [postgres, mysql], category: fp, expect: allow, sql: "SELECT NOW() AS ts, id FROM customers" }
+  - { id: ok-030, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT id FROM customers;" }
+  - { id: ok-031, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "/* hint */ SELECT id FROM customers" }
+  - { id: ok-032, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "(SELECT id FROM customers)" }
+  - { id: ok-033, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT 1 AS one" }
+  - { id: ok-034, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT count(*) FROM customers" }
+  - { id: ok-035, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT name FROM customers UNION SELECT name FROM products" }
+  - { id: ok-036, dialects: [postgres, tsql, sqlite], category: fp, expect: allow, sql: "SELECT id FROM customers EXCEPT SELECT customer_id FROM orders" }
+  - { id: ok-037, dialects: [postgres, tsql, sqlite], category: fp, expect: allow, sql: "SELECT id FROM customers INTERSECT SELECT customer_id FROM orders" }
+  - { id: ok-038, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT name FROM customers c WHERE EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id)" }
+  - { id: ok-039, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT name FROM customers WHERE id NOT IN (SELECT customer_id FROM orders)" }
+  - { id: ok-040, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT id FROM products WHERE price BETWEEN 10 AND 100" }
+  - { id: ok-041, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT c.name FROM customers c LEFT JOIN orders o ON o.customer_id = c.id" }
+  - { id: ok-042, dialects: [postgres, tsql], category: fp, expect: allow, sql: "SELECT c.name FROM customers c FULL OUTER JOIN orders o ON o.customer_id = c.id" }
+  - { id: ok-043, dialects: [postgres], category: fp, expect: allow, sql: "SELECT c.name, l.n FROM customers c CROSS JOIN LATERAL (SELECT count(*) AS n FROM orders o WHERE o.customer_id = c.id) l" }
+  - { id: ok-044, dialects: [tsql], category: fp, expect: allow, sql: "SELECT c.name, l.n FROM customers c CROSS APPLY (SELECT count(*) AS n FROM orders o WHERE o.customer_id = c.id) l" }
+  - { id: ok-045, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "select name from CUSTOMERS where CITY = 'Pune'" }
+  - { id: ok-046, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT id FROM customers WHERE name = 'O''Brien'" }
+  - { id: ok-047, dialects: [postgres], category: fp, expect: allow, sql: "SELECT id FROM customers WHERE name ILIKE '%ann%'" }
+  - { id: ok-048, dialects: [postgres], category: fp, expect: allow, sql: "SELECT id FROM customers WHERE name ~ '^A'" }
+  - { id: ok-049, dialects: [postgres], category: fp, expect: allow, sql: "SELECT id FROM customers WHERE id = ANY(ARRAY[1, 2, 3])" }
+  - { id: ok-050, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT p.category, SUM(oi.quantity * oi.unit_price) AS revenue FROM order_items oi JOIN products p ON p.id = oi.product_id GROUP BY p.category ORDER BY revenue DESC" }
+  - { id: ok-051, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "WITH monthly AS (SELECT customer_id, count(*) AS n FROM orders GROUP BY customer_id) SELECT c.name, m.n FROM customers c JOIN monthly m ON m.customer_id = c.id ORDER BY m.n DESC" }
+  - { id: ok-052, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT name FROM customers c WHERE c.id = (SELECT max(customer_id) FROM orders)" }
+  - { id: ok-053, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT DISTINCT category FROM products" }
+  - { id: ok-054, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT id, name FROM customers WHERE signup_date >= '2025-01-01' AND signup_date < '2025-02-01'" }
+  - { id: ok-055, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT LOWER(name) AS n, UPPER(city) AS c, LENGTH(email) AS l FROM customers" }
+  - { id: ok-056, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT name FROM customers ORDER BY signup_date DESC, name ASC" }
+  - { id: ok-057, dialects: [postgres, mysql, sqlite], category: fp, expect: allow, sql: "SELECT c.name FROM customers c NATURAL JOIN orders o" }
+  - { id: ok-058, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT AVG(price) AS avg_price, MIN(price) AS min_price, MAX(price) AS max_price FROM products" }
+  - { id: ok-059, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT id FROM customers WHERE city IN ('Mumbai', 'Delhi', 'Pune')" }
+  - { id: ok-060, dialects: [postgres, mysql, tsql, sqlite], category: fp, expect: allow, sql: "SELECT o.status, COUNT(DISTINCT o.customer_id) AS buyers FROM orders o GROUP BY o.status" }

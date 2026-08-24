@@ -87,8 +87,25 @@ def _ensure_owner_id_column(engine: Engine) -> None:
 
 
 def create_metadata_tables(connection_string: str) -> None:
-    """Create the project metadata tables (idempotent)."""
+    """Bring the application schema to the current revision (idempotent).
+
+    Uses Alembic (``db/migrations``) so schema changes are versioned and reviewable; falls back to
+    ``create_all`` + the owner_id repair only if Alembic itself cannot run, so a broken migration
+    environment never takes the API down.
+    """
     engine = get_engine(connection_string)
+    try:
+        from db.migrate import upgrade_to_head
+
+        upgrade_to_head(connection_string)
+        return
+    except Exception as exc:
+        from app.utils.logger import sanitize_for_log
+
+        logger.warning(
+            "Alembic upgrade failed, falling back to create_all: %s",
+            sanitize_for_log(str(exc), max_len=500),
+        )
     try:
         Base.metadata.create_all(engine)
         _ensure_owner_id_column(engine)

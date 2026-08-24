@@ -2,21 +2,46 @@
 
 import { useState } from "react";
 import { saveVerifiedPair, type QueryResponse } from "@/src/lib/api";
+import { resolveTablesUsed } from "@/src/lib/evidence";
 import { CopyButton } from "./CopyButton";
+import { EvidenceStrip } from "./EvidenceStrip";
 import { ResultChart } from "./ResultChart";
 import { ResultsTable } from "./ResultsTable";
 import { SqlCode } from "./SqlCode";
+import { TruncationBanner } from "./TruncationBanner";
 import { useWorkspace } from "./WorkspaceProvider";
 
-function ValidationBadge({ passed }: { passed: boolean | null }) {
-  if (passed === null) return null;
-  return passed ? (
-    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-700/60 bg-emerald-900/40 px-2.5 py-0.5 text-xs font-medium text-emerald-300">
-      validation passed
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-1 rounded-full border border-rose-700/60 bg-rose-900/40 px-2.5 py-0.5 text-xs font-medium text-rose-300">
-      validation failed
+/**
+ * The badge next to "Generated SQL". It prefers the policy engine's own decision and its ruleset
+ * version, because "allow · sql_policy@2.0.0" is a checkable statement in a way that a bare
+ * "validation passed" is not. The v1 boolean stays as the fallback for an older backend.
+ */
+function PolicyBadge({ response }: { response: QueryResponse }) {
+  const decision = response.metadata?.policy_decision ?? null;
+  const version = response.metadata?.policy_version ?? null;
+
+  const label = decision
+    ? `policy: ${decision}${version ? ` · ${version}` : ""}`
+    : response.validation_passed === true
+      ? "validation passed"
+      : response.validation_passed === false
+        ? "validation failed"
+        : null;
+  if (!label) return null;
+
+  const bad = decision === "deny" || response.validation_passed === false;
+  const held = decision === "needs_approval";
+  const tone = bad
+    ? "border-rose-700/60 bg-rose-900/40 text-rose-300"
+    : held
+      ? "border-amber-600/60 bg-amber-950/40 text-amber-200"
+      : "border-emerald-700/60 bg-emerald-900/40 text-emerald-300";
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 font-mono text-xs font-medium ${tone}`}
+    >
+      {label}
     </span>
   );
 }
@@ -32,7 +57,7 @@ export function ResultsPanel({
 }) {
   const sql = response.sql ?? response.data?.sql ?? null;
   const followUps = response.follow_up_questions ?? [];
-  const selectedTables = response.selected_tables ?? [];
+  const selectedTables = resolveTablesUsed(response);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const { query, dbFlag } = useWorkspace();
@@ -63,6 +88,12 @@ export function ResultsPanel({
         </div>
       )}
 
+      {/* How this answer was produced, before the answer itself is interpreted. */}
+      <EvidenceStrip response={response} />
+
+      {/* A capped result set is announced before it can be misread as the whole picture. */}
+      <TruncationBanner response={response} />
+
       {/* Auto-chart (renders only when the data charts cleanly). */}
       {response.data && <ResultChart data={response.data} />}
 
@@ -80,7 +111,7 @@ export function ResultsPanel({
               ▸
             </span>
             Generated SQL
-            <ValidationBadge passed={response.validation_passed} />
+            <PolicyBadge response={response} />
           </summary>
           <div className="space-y-3 border-t border-slate-800 p-4">
             <div className="flex items-center justify-end gap-2">
@@ -149,7 +180,7 @@ export function ResultsPanel({
                     Cancel
                   </button>
                   <span className="text-xs text-slate-400">
-                    Runs through the same read-only validator — writes are always rejected.
+                    Runs through the same read-only policy engine — writes and DDL are rejected there.
                   </span>
                 </div>
               </div>

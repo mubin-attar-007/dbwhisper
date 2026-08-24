@@ -7,10 +7,11 @@ from pathlib import Path
 from time import perf_counter
 
 from app.models import SchemaDocumentationSummary, SchemaEmbeddingResult, SchemaEmbeddingSettings
+from app.platform.paths import schema_dir
 from app.schema_pipeline.embedding_pipeline import SchemaEmbeddingPipeline
 from app.schema_pipeline.pipeline import SchemaExtractionPipeline
 from app.schema_pipeline.schema_documenting import document_database_schema
-from app.user_db_config_loader import PROJECT_ROOT, get_user_database_settings
+from app.user_db_config_loader import get_user_database_settings
 from app.utils.logger import setup_logging
 
 logger = setup_logging(__name__)
@@ -45,7 +46,7 @@ class SchemaPipelineOrchestrator:
         self.incremental_documentation = incremental_documentation
         self.run_embeddings = run_embeddings
         self.settings = get_user_database_settings(db_flag)
-        self.extraction_output = PROJECT_ROOT / "database_schemas" / db_flag / "schema"
+        self.extraction_output = schema_dir(db_flag)
         # Get the Postgres connection string from a central place (not user input)
         # This assumes you have a way to get the project-level Postgres connection string
         # For example, from an environment variable or a config file
@@ -65,14 +66,12 @@ class SchemaPipelineOrchestrator:
         )
 
         documentation_summary = None
-        documentation_summary = None
         if self.run_documentation:
             td0 = perf_counter()
             documentation_summary = self._run_documentation(extraction_path)
             td1 = perf_counter()
             logger.info("Documentation stage completed in %.3fs", td1 - td0)
 
-        embedding_result = None
         embedding_result = None
         if self.run_embeddings:
             te0 = perf_counter()
@@ -103,7 +102,7 @@ class SchemaPipelineOrchestrator:
 
     def _run_documentation(self, schema_dir: Path) -> SchemaDocumentationSummary:
         intro_path = Path(self.settings.intro_template)
-        print(f"Using intro template at: {intro_path} , {intro_path.exists()}, DB_{self.db_flag}")
+        logger.debug("Using intro template at %s (exists=%s)", intro_path, intro_path.exists())
         summary = document_database_schema(
             database_name=self.db_flag,
             schema_output_dir=schema_dir,

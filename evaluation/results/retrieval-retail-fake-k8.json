@@ -1,0 +1,35 @@
+{
+  "cases_scored": 50,
+  "caveat": "Fake embeddings are deterministic vectors, so this measures the lexical and fusion path, not semantic similarity. It is a regression gate, not a statement about retrieval quality.",
+  "embedding_version": "fake:hashed-tokens:128:n:1",
+  "embeddings": "fake",
+  "environment": "Windows 10, Python 3.13.13",
+  "k": 8,
+  "kind": "retrieval-only",
+  "measured_at": "2026-08-24T13:42:13+00:00",
+  "measures_model": false,
+  "mrr": 0.9183333333333333,
+  "per_dataset": [
+    {
+      "cases": 50,
+      "dataset": "retail",
+      "mrr": 0.9183333333333333,
+      "table_recall": {
+        "denominator": 91,
+        "label": "table recall@k",
+        "numerator": 87,
+        "text": "87 of 91 (95.6%)",
+        "value": 0.956044
+      }
+    }
+  ],
+  "reproduce": "uv run python -m app.evaluation.cli retrieval --dataset retail --k 8 --embeddings fake",
+  "run": "retrieval-retail-fake-k8",
+  "table_recall": {
+    "denominator": 91,
+    "label": "table recall@k",
+    "numerator": 87,
+    "text": "87 of 91 (95.6%)",
+    "value": 0.956044
+  }
+}

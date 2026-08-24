@@ -29,19 +29,21 @@ def _is_exempt(path: str) -> bool:
     return any(path == p or path.startswith(p + "/") for p in _EXEMPT)
 
 
-def _client_ip(request: Request) -> str:
-    """Resolve the real client IP behind proxies (Vercel → HF Space).
+def _client_ip(request: Request, *, trust_proxy_headers: bool) -> str:
+    """Resolve the client IP, trusting proxy headers only when configured to.
 
-    Trusts X-Forwarded-For / X-Real-IP since the app sits behind known proxies; falls back
-    to the socket peer. Without this, per-IP limiting would bucket all traffic under the
-    proxy's single IP.
+    ``X-Forwarded-For`` is attacker-controlled unless a proxy you operate overwrites it. Trusting
+    it unconditionally makes per-IP limiting free to evade: send a different header each request.
+    So it is honoured only when ``TRUST_PROXY_HEADERS`` is set, which a deployment behind Vercel or
+    a Hugging Face Space should do - and a directly-exposed one must not.
     """
-    xff = request.headers.get("x-forwarded-for")
-    if xff:
-        return xff.split(",")[0].strip()
-    real = request.headers.get("x-real-ip")
-    if real:
-        return real.strip()
+    if trust_proxy_headers:
+        xff = request.headers.get("x-forwarded-for")
+        if xff:
+            return xff.split(",")[0].strip()
+        real = request.headers.get("x-real-ip")
+        if real:
+            return real.strip()
     return request.client.host if request.client else "unknown"
 
 
@@ -56,7 +58,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if not settings.rate_limit_enabled or _is_exempt(path):
             return await call_next(request)
 
-        client_ip = _client_ip(request)
+        client_ip = _client_ip(request, trust_proxy_headers=settings.trust_proxy_headers)
         if path.startswith("/query"):
             capacity, refill = settings.query_rate_limit_burst, settings.query_rate_limit_per_sec
         else:

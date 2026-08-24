@@ -50,12 +50,14 @@ export function HealthBadge() {
     online: {
       dot: "bg-emerald-400",
       text: "text-emerald-300",
-      label: "online",
+      // `/health` is a static liveness literal: a 200 attests that the process is up, not that a
+      // query would succeed. The label says exactly that much and no more (CLAIM_AUDIT §3.7).
+      label: "API reachable",
     },
     offline: {
       dot: "bg-rose-500",
       text: "text-rose-300",
-      label: "offline",
+      label: "API unreachable",
     },
   };
 
