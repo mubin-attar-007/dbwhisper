@@ -1,0 +1,59 @@
+# What never enters the web build context.
+#
+# The root .dockerignore excludes `web/` from the api and worker builds; this file is its
+# counterpart, and it is read because compose sets `context: ./web` (docker reads
+# `<context>/.dockerignore`, not the one beside the compose file).
+#
+# Same two reasons as the root file, and they are worth keeping apart:
+#
+#   * SIZE - node_modules/ and .next/ together are the overwhelming majority of this directory.
+#     Both are uploaded to the daemon on every build and both invalidate the cache constantly.
+#     They are also actively harmful: node_modules/ was installed on the host, so any package
+#     with a native binding would be the wrong platform inside a linux/amd64 image, and a stale
+#     host .next/ can be picked up in place of the one the builder stage produces.
+#   * SAFETY - `.env.local` and friends hold whatever the developer pointed this at. Excluded
+#     here as well as in .gitignore, because the builder stage does `COPY . .` and a build arg
+#     is visible in `docker history` while a baked-in layer is not even that visible.
+#
+# Anything the build needs must NOT be listed here: package.json, package-lock.json,
+# next.config.mjs, tsconfig.json, tailwind/postcss config, app/, src/, the instrumentation
+# hooks and next-env.d.ts are all required by `npm ci` and `next build`.
+
+# ── Installed and generated trees ────────────────────────────────────────────────────────────────
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+
+# ── Test-only: neither `npm ci` nor `next build` reads these ─────────────────────────────────────
+# tsconfig.json's include is a bare **/*.ts glob, so dropping tests/ shrinks what tsc walks
+# during the build's type check rather than breaking it - a glob that matches nothing is not an
+# error. The suites run in CI on the host, never inside this image.
+tests/
+playwright.config.ts
+vitest.config.ts
+vitest.setup.ts
+coverage/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+
+# ── Version control, editors, CI ─────────────────────────────────────────────────────────────────
+.git/
+.gitignore
+.vercel/
+.idea/
+.vscode/
+*.log
+npm-debug.log*
+
+# ── Docs: the image serves the site, it does not ship the prose about it ─────────────────────────
+README.md
+
+# ── Secrets: never in a build context ────────────────────────────────────────────────────────────
+# .env.example is the committed template and carries no values, but there is no reason to copy
+# it in either, and a narrower pattern would risk missing `.env.production.local`.
+.env
+.env.*

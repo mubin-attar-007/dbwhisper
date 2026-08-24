@@ -31,7 +31,7 @@ site's own CSP can pin `connect-src 'self'`.
 
 | Variable                   | Scope              | Default                        | Description                                                                                                |
 | -------------------------- | ------------------ | ------------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| `API_PROXY_TARGET`         | server, per-request | `http://localhost:8000`        | Origin that Next rewrites `/api/*` to. **This is the one to set on Vercel.**                                |
+| `API_PROXY_TARGET`         | server, **build-time** | `http://localhost:8000`     | Origin that Next rewrites `/api/*` to. **This is the one to set on Vercel.** Needs a rebuild to change.   |
 | `NEXT_PUBLIC_API_BASE`     | client, build-time | `/api`                         | Only to bypass the proxy and call the backend directly. Requires backend CORS **and** a CSP change.          |
 | `NEXT_PUBLIC_SITE_URL`     | build              | `https://dbwhisper.vercel.app` | Canonical origin for metadata, robots and sitemap ([`src/lib/site.ts`](./src/lib/site.ts)).                  |
 | `NEXT_PUBLIC_SENTRY_DSN`   | client             | unset                          | Optional error tracking; a no-op when unset.                                                                 |
@@ -43,9 +43,35 @@ Copy the example file and adjust:
 cp .env.example .env.local
 ```
 
-`API_PROXY_TARGET` is read on the **server** at request time, so changing it does not require a
-rebuild. Anything prefixed `NEXT_PUBLIC_` is inlined into the client bundle **at build time** and does
-need a rebuild to take effect.
+**Every variable here is resolved at build time, including `API_PROXY_TARGET`.** Next calls
+`rewrites()` during `next build` and freezes the resolved destination into
+`.next/routes-manifest.json`; neither `next start` nor the standalone server re-reads
+`next.config.mjs`. Setting `API_PROXY_TARGET` on an already-built container therefore does nothing
+at all — the container comes up healthy and every `/api/*` call still goes wherever the build
+pointed it, which is the most confusing possible failure. Change it, then rebuild. (Vercel rebuilds
+on each deploy, so this is only a trap for a container you are trying to reconfigure in place.)
+
+To see where an existing image actually points:
+
+```bash
+docker run --rm --entrypoint node <image>   -e 'console.log(require("./.next/routes-manifest.json").rewrites.afterFiles)'
+```
+
+Anything prefixed `NEXT_PUBLIC_` is inlined into the client bundle at build time for the same
+reason.
+
+## Running in Docker
+
+The image is built by [`Dockerfile`](./Dockerfile) and wired into the repository's `compose.yaml` as
+a `core`-profile service:
+
+```bash
+docker compose --profile core up -d --build
+```
+
+`--build` is not optional after changing `API_PROXY_TARGET` or any `NEXT_PUBLIC_*` value: they are
+build arguments, for the reason given above. Inside compose the default target is `http://api:8000`
+(the API service name) — `localhost` can never be right from inside a container.
 
 ## Scripts
 

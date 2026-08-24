@@ -2,7 +2,7 @@ name: dbwhisper
 
 # Four profiles, so you only pay for what you are actually looking at.
 #
-#   core           postgres + pgvector init + api + worker.  This is the whole application.
+#   core           postgres + pgvector init + api + worker + web.  This is the whole application.
 #   local-ai       ollama, for running the SQL model on your own machine with no API key.
 #   targets        a MariaDB and a PostgreSQL instance to *point DBWhisper at*, so you can enroll a
 #                  real database without exposing one you care about.
@@ -210,6 +210,67 @@ services:
       resources:
         limits:
           memory: 2g
+
+  web:
+    profiles: [core]
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      # These are BUILD args, not environment variables, and the distinction has teeth here.
+      # `next.config.mjs` resolves the /api/* rewrite during `next build` and freezes the result
+      # into .next/routes-manifest.json, so the API target is chosen when the image is built and
+      # cannot be changed by restarting the container. Editing any value below therefore needs
+      #
+      #   docker compose --profile core up -d --build web
+      #
+      # and a plain `up -d` will silently keep serving the previous build. Decision (1) in
+      # web/Dockerfile has the full reasoning and a command that prints what an image really
+      # points at. Nothing secret goes here: every one of these is either a hostname on this
+      # private network or a NEXT_PUBLIC_* value that ships inside the browser bundle anyway.
+      args:
+        # `api` is the compose service name and 8000 is the port it listens on above. The browser
+        # never sees this - it calls the web origin and Next proxies server-side, which is why
+        # there is no CORS configuration anywhere in this stack.
+        API_PROXY_TARGET: http://api:8000
+        # Canonical origin for metadata, robots.txt and the sitemap. Must not be empty:
+        # src/lib/site.ts reads it with `??`, so an empty string beats the code default and
+        # `new URL("")` fails the build. If you change DBW_WEB_PORT, set this to match.
+        NEXT_PUBLIC_SITE_URL: ${DBW_WEB_SITE_URL:-http://localhost:3000}
+        # Show the login UI. Pair it with the backend's USER_AUTH_ENABLED or the console offers a
+        # sign-in that the API will reject.
+        NEXT_PUBLIC_AUTH_ENABLED: ${NEXT_PUBLIC_AUTH_ENABLED:-}
+        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+    image: dbwhisper-web:local
+    ports:
+      # 3000 is free here because grafana is published on 3001, not on its native 3000.
+      - "${DBW_WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    # Ordering, not correctness: the marketing page and the console shell render perfectly well
+    # with no backend, so this is not a hard requirement. It is here so that the first page load
+    # after `up` finds a working API instead of showing an unreachable-API badge for the ~40s the
+    # embedding runtime takes to warm up. Because `api` waits on `migrate`, which waits on
+    # postgres, this also makes the whole core profile come up in a deterministic order.
+    healthcheck:
+      # Same probe as the image's own HEALTHCHECK, restated so the port is pinned next to the
+      # port mapping above. /robots.txt is a real route on the Node server that renders no React
+      # and calls no API, so it reports on this container only - a probe against /api/* would
+      # turn a backend outage into an unhealthy frontend.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/robots.txt || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    # No volumes. Everything served is baked into the image, and the only writable state the app
+    # has is query history in the browser's localStorage.
+    deploy:
+      resources:
+        limits:
+          # `docker stats` reported 66 MiB for this image after serving /, /app, /app/schema and
+          # /robots.txt once each on a single container - one sample on one machine, not a load
+          # test. 512m is headroom for concurrent SSR, not a measured requirement.
+          memory: 512m
 
   # ── local-ai ───────────────────────────────────────────────────────────────────────────────────
   ollama:
