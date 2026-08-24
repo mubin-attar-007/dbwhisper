@@ -15,7 +15,6 @@ requires a model, and its absence is reported as a blocked run with an actionabl
 
 from __future__ import annotations
 
-import contextlib
 import logging
 import time
 from typing import Any
@@ -84,24 +83,21 @@ def _blocked(name: str, started: float, message: str, category: str = "blocked")
 # ---------------------------------------------------------------------------------------------
 
 
-def _credit_verified_examples(pair_ids: list[str]) -> None:
-    """Count the verified pairs that were actually put in front of the model.
+def _credit_verified_examples(deps: GraphDeps, pair_ids: list[str]) -> None:
+    """Report the verified pairs that were actually put in front of the model.
 
-    This is what makes the flywheel measurable rather than merely collectable: a pair nobody's
-    questions ever reach is a candidate for retirement, and one that is used constantly is worth
-    re-checking first when the schema moves. Counting is best-effort - it must never be the reason
-    a query fails.
+    Reporting, not recording: the sink is injected, so the graph does not open a database session of
+    its own. That is the same rule that keeps credentials out of checkpointed state, and an
+    import-linter contract enforces it - see [tool.importlinter] in pyproject.toml.
+
+    Best effort. A usage counter must never be the reason a query fails.
     """
-    if not pair_ids:
+    if not pair_ids or deps.on_examples_used is None:
         return
     try:
-        from db.verified_queries import record_use
-
-        for pair_id in pair_ids:
-            with contextlib.suppress(ValueError, TypeError):
-                record_use(int(pair_id))
+        deps.on_examples_used(list(pair_ids))
     except Exception as exc:  # pragma: no cover - telemetry must not break a query
-        logger.debug("Could not record verified-example usage: %s", exc)
+        logger.debug("Could not report verified-example usage: %s", exc)
 
 
 def make_retrieve_node(deps: GraphDeps):
@@ -139,7 +135,7 @@ def make_retrieve_node(deps: GraphDeps):
             ),
         )
         pack = build_context_pack(result.hits, budget_tokens=deps.context_budget_tokens)
-        _credit_verified_examples(pack.example_pair_ids)
+        _credit_verified_examples(deps, pack.example_pair_ids)
 
         if not pack.tables:
             return _blocked(

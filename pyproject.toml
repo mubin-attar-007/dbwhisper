@@ -126,3 +126,49 @@ pythonpath = ["."]
 addopts = "-q"
 asyncio_mode = "auto"
 filterwarnings = ["ignore::DeprecationWarning"]
+
+# ── Architectural contracts ──────────────────────────────────────────────────────────────────────
+# Several of this project's security properties are structural: they hold because one package cannot
+# reach another, not because a reviewer remembered. A docstring saying "the model layer never touches
+# a database" is worth very little; an import graph that makes it impossible is worth a lot. These
+# contracts are the machine-checkable form of the architecture in docs/v2/TARGET_ARCHITECTURE.md and
+# the ADRs, and they run in CI (`uv run lint-imports`).
+[tool.importlinter]
+root_packages = ["app", "db"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "The model layer cannot reach a database"
+type = "forbidden"
+source_modules = ["app.llm", "app.embeddings"]
+forbidden_modules = ["app.execution", "db", "sqlalchemy", "psycopg", "pymysql", "sqlite3", "pyodbc"]
+# A provider that could open a connection is one prompt-injection away from being asked to. The
+# model layer returns text; something else decides whether that text ever reaches a database.
+
+[[tool.importlinter.contracts]]
+name = "The policy engine decides on its own"
+type = "forbidden"
+source_modules = ["app.sqlpolicy"]
+forbidden_modules = ["app.execution", "app.llm", "app.graph", "app.api", "app.agent", "db"]
+# "Never trust the model to decide whether its own query is safe" — expressed structurally. The
+# engine cannot consult a model or a connection even by accident, so its verdict is a pure function
+# of the statement and the schema scope, which is also what makes the adversarial corpus meaningful.
+
+[[tool.importlinter.contracts]]
+name = "No credential reaches the graph"
+type = "forbidden"
+source_modules = ["app.graph", "app.analysis", "app.retrieval"]
+forbidden_modules = ["db.database_manager", "app.platform.connection_secrets"]
+# Graph state is checkpointed to disk. It carries a source_id; credentials are resolved through
+# GraphDeps at execution time and never enter state. tests/graph asserts the runtime half of this;
+# this is the structural half.
+
+[[tool.importlinter.contracts]]
+name = "Observability is a leaf"
+type = "forbidden"
+source_modules = ["app.observability"]
+forbidden_modules = [
+    "app.api", "app.graph", "app.execution", "app.llm", "app.jobs", "app.sqlpolicy", "app.retrieval",
+]
+# Instrumentation that imports the thing it instruments causes import cycles and, worse, tempts
+# someone to put a result row on a span. It may depend on configuration and nothing else.

@@ -38,6 +38,12 @@ class DataSourceTarget:
 #: graph turns into a blocked run rather than a crash.
 SourceResolver = Callable[[str], DataSourceTarget]
 
+#: Told which verified pairs were actually rendered into the context. Injected for the same reason
+#: the resolver is: crediting usage is a write to the application database, and a graph node that
+#: opens its own database session is a node that can be given a credential later. The graph reports
+#: what it used; the layer that already owns database access decides what to do about it.
+ExampleUsageSink = Callable[[list[str]], None]
+
 
 @dataclass(slots=True)
 class GraphDeps:
@@ -60,6 +66,8 @@ class GraphDeps:
     skip_understanding: bool = False
     #: Extra metadata recorded on every run (application version, deployment name...).
     run_metadata: dict[str, Any] = field(default_factory=dict)
+    #: Optional. Receives the ids of the verified pairs the context pack actually rendered.
+    on_examples_used: ExampleUsageSink | None = None
 
 
-__all__ = ["DataSourceTarget", "GraphDeps", "SourceResolver"]
+__all__ = ["DataSourceTarget", "ExampleUsageSink", "GraphDeps", "SourceResolver"]

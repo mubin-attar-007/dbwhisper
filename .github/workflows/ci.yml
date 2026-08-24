@@ -65,6 +65,13 @@ jobs:
       - name: Ruff format check
         run: uv run ruff format --check app db tests scripts run.py
 
+      # Several security properties of this codebase are structural — the model layer cannot reach a
+      # database, the policy engine cannot consult a model, no credential-bearing module is
+      # importable from the checkpointed graph. A docstring saying so is worth little; an import
+      # graph that makes it impossible is worth a lot. Contracts live in pyproject.toml.
+      - name: Architectural contracts
+        run: uv run lint-imports
+
       # ── Type checking: a real gate on the packages that are clean, a ratchet on the rest ────────
       #
       # `mypy app db || true` was not a gate - the `|| true` swallowed every error, so the step was

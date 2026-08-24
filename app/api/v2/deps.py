@@ -254,7 +254,26 @@ def build_graph_deps(source_id: str, settings: Settings | None = None) -> GraphD
         network_allowlist=settings.network_allowlist_list,
         bundled_hosts=settings.network_allowlist_list,
         run_metadata={"mode": settings.mode.value},
+        on_examples_used=_record_example_usage,
     )
+
+
+def _record_example_usage(pair_ids: list[str]) -> None:
+    """Credit the verified pairs the graph reported showing to the model.
+
+    This lives here rather than in the graph node because it writes to the application database, and
+    the graph is deliberately kept unable to reach one. A pair nobody's questions ever reach is a
+    candidate for retirement; one used constantly is worth re-checking first when the schema moves.
+    """
+    from db.verified_queries import record_use
+
+    for pair_id in pair_ids:
+        try:
+            record_use(int(pair_id))
+        except (ValueError, TypeError):
+            continue
+        except Exception as exc:  # pragma: no cover - a counter must not break a query
+            logger.debug("Could not record usage for verified pair %s: %s", pair_id, exc)
 
 
 def reset() -> None:
