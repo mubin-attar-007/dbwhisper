@@ -238,7 +238,9 @@ provider is down, how to read a trace — are in [`docs/OPERATIONS.md`](docs/OPE
 
 ## API surface
 
-27 application endpoints (plus FastAPI's own `/docs`, `/redoc`, `/openapi.json` and a static mount).
+27 application operations across 26 paths — `/training/pairs` serves both GET and POST — plus
+FastAPI's own `/docs`, `/redoc`, `/openapi.json` and a static mount. Enumerated 2026-08-24 from
+`app.routes`.
 
 - **v1** — `POST /query`, `POST /run_sql`, `POST /schemas/enroll`, `POST /schemas/embeddings`,
   `GET /schemas/{db_flag}`, `GET /databases`, the `/training/pairs` verified-query endpoints, the
