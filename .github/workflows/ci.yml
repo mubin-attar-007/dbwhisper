@@ -439,9 +439,11 @@ jobs:
 
       - name: Bandit (Python static analysis)
         # `uvx` runs the tool in a throwaway environment, so bandit never becomes a project
-        # dependency. Blocking at HIGH severity + HIGH confidence only: bandit's medium findings on
-        # this codebase are dominated by B608 ("possible SQL injection") on code whose entire job is
-        # to build and then reject SQL, and a gate that cries wolf gets switched off.
+        # dependency. `-ll -ii` blocks at MEDIUM severity and MEDIUM confidence: low-confidence
+        # findings on this codebase are dominated by B608 ("possible SQL injection") pointed at code
+        # whose entire job is to build and then reject SQL, and a gate that cries wolf gets switched
+        # off. Anything it does flag is fixed or suppressed at the line with a stated reason, never
+        # by loosening this threshold.
         run: uvx bandit@1.8.0 -r app db -ll -ii -q
 
       - name: Bandit (full report, informational)

@@ -178,8 +178,20 @@ def row_counts(spec: DatasetSpec, path: Path | None = None) -> dict[str, int]:
     target = build_fixture(spec, path)
     connection = sqlite3.connect(f"file:{target.as_posix()}?mode=ro", uri=True)
     try:
+        # A table name cannot be a bind parameter in SQL, so it has to be interpolated. It is not
+        # user input - it comes from this repository's own DatasetSpec literals - and the connection
+        # is opened read-only (mode=ro) besides. The guard below asserts that rather than assuming
+        # it, so the suppression on the next statement stays true if a spec ever takes a name from
+        # somewhere else.
+        for table in spec.tables:
+            if not table.name.isidentifier():
+                raise ValueError(
+                    f"Refusing to interpolate an unexpected table name: {table.name!r}"
+                )
         return {
-            table.name: int(connection.execute(f"SELECT COUNT(*) FROM {table.name}").fetchone()[0])
+            table.name: int(
+                connection.execute(f"SELECT COUNT(*) FROM {table.name}").fetchone()[0]  # nosec B608
+            )
             for table in spec.tables
         }
     finally:
