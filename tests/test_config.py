@@ -70,3 +70,54 @@ def test_cookie_secure_follows_mode_policy():
     assert Settings(app_mode="self_hosted").cookie_secure is False
     assert Settings(app_mode="production").cookie_secure is True
     assert Settings(app_mode="production", session_cookie_secure=False).cookie_secure is False
+
+
+def test_every_setting_is_documented_in_env_example():
+    """A setting nobody can discover is a setting nobody will set correctly.
+
+    `.env.example` is the only place an operator learns what is configurable, so a new field on
+    `Settings` that never reaches it is invisible until something behaves unexpectedly in
+    production. This is the same class of check as the CSRF route sweep: the module was fine, the
+    seam was not.
+    """
+    from pathlib import Path
+
+    env_example = Path(__file__).resolve().parents[1] / ".env.example"
+    text = env_example.read_text(encoding="utf-8")
+
+    undocumented = sorted(
+        (field.alias or name).upper()
+        for name, field in Settings.model_fields.items()
+        if (field.alias or name).upper() not in text and name.upper() not in text
+    )
+    assert undocumented == [], (
+        "these settings exist on Settings but are absent from .env.example, so nobody deploying "
+        "this can discover them: " + ", ".join(undocumented)
+    )
+
+
+def test_env_example_does_not_ship_a_real_secret():
+    """The template is committed; a filled-in value in it is a leaked credential."""
+    import re
+    from pathlib import Path
+
+    env_example = Path(__file__).resolve().parents[1] / ".env.example"
+    suspicious: list[str] = []
+    for line in env_example.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        value = value.strip().strip('"').strip("'")
+        if not value:
+            continue
+        looks_secret = re.search(r"KEY|TOKEN|SECRET|PASSWORD|DSN", key, re.IGNORECASE)
+        # A documented non-secret default (a port, a boolean, a profile name) is fine; a filled-in
+        # credential-shaped value is not.
+        if looks_secret and not re.fullmatch(
+            r"(|false|true|0|\d+|fake|local|<.*>|change-?me)", value, re.IGNORECASE
+        ):
+            suspicious.append(f"{key}={value[:12]}...")
+    assert suspicious == [], "credential-shaped values committed in .env.example: " + ", ".join(
+        suspicious
+    )

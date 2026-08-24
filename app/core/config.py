@@ -88,7 +88,11 @@ class Settings(BaseSettings):
     # (which has no login, therefore no ambient authority). See app/security/csrf.py.
     csrf_enforced: bool | None = None
 
-    # ─── Rate limiting (per-IP, in-memory token bucket; Upstash optional later) ───
+    # ─── Rate limiting ───
+    # Per-IP token bucket held in this process's memory. That is a real limit for a single
+    # instance and NOT a limit across replicas: two instances each admit the full burst. See
+    # app/security/ratelimit.py, which is written against an interface a shared-store limiter
+    # can implement when a deployment needs one.
     rate_limit_enabled: bool = True
     rate_limit_burst: int = 30
     rate_limit_per_sec: float = 0.5
@@ -103,10 +107,6 @@ class Settings(BaseSettings):
     # ─── Query-result cache ───
     query_cache_enabled: bool = True
     query_cache_ttl: int = 300
-
-    # ─── Optional Upstash/Redis (future distributed rate-limit/cache) ───
-    upstash_redis_rest_url: str | None = None
-    upstash_redis_rest_token: str | None = None
 
     @property
     def cors_origins_list(self) -> list[str]:

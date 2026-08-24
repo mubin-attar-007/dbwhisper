@@ -1,4 +1,4 @@
-"""FastAPI application for SQL Insight Agent.
+"""FastAPI application for DBWhisper.
 
 Endpoints implemented:
 - GET /health: lightweight health check
@@ -1441,23 +1441,22 @@ def _build_pipeline_report(
 @app.get("/")
 async def root():
     """Root endpoint with API documentation link."""
+    # Deliberately no hand-written endpoint list. The previous one named four of the twenty-seven
+    # operations and had drifted; /openapi.json is generated from the routes and cannot.
     return {
-        "message": "SQL Insight Agent API",
+        "message": "DBWhisper API",
+        "version": app.version,
         "docs": "/docs",
+        "openapi": "/openapi.json",
         "health": "/health",
-        "endpoints": {
-            "POST /query": "Execute natural language SQL query",
-            "POST /schemas/embeddings": "Convert schema YAML definitions to embeddings",
-            "POST /schemas/enroll": "Enroll a database, extract schema, document, and embed",
-            "GET /health": "Health check",
-        },
+        "ready": "/ready",
     }
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    logger.info("Starting SQL Insight Agent API server")
+    logger.info("Starting DBWhisper API server")
     uvicorn.run(
         "app.main:app",
         host="127.0.0.1",
